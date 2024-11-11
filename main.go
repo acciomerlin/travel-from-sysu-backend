@@ -1,5 +1,7 @@
 package main
 
+//入口文件
+
 import (
 	"travel-from-sysu-backend/config"
 	"travel-from-sysu-backend/router"
