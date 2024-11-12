@@ -1,6 +1,19 @@
 package main
 
-//入口文件
+// @title travel-from-sysu API
+// @version 1.0
+// @description travel-from-sysu API
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name 804
+// @contact.url http://www.swagger.io/support  // 可改为公司或项目支持页面的链接
+// @contact.email support@swagger.io
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:3000
+// @BasePath /api/auth
 
 import (
 	"travel-from-sysu-backend/config"

@@ -1,0 +1,94 @@
+basePath: /api/auth
+definitions:
+  controllers.ErrorResponse:
+    properties:
+      code:
+        type: integer
+      error:
+        type: string
+      status:
+        type: string
+    type: object
+  controllers.RegisterResponse:
+    properties:
+      code:
+        type: integer
+      status:
+        type: string
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/models.User'
+    type: object
+  models.User:
+    properties:
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      id:
+        type: integer
+      password:
+        type: string
+      updated_at:
+        type: string
+      username:
+        type: string
+    type: object
+  models.UserRegisterRequest:
+    properties:
+      password:
+        example: password123
+        type: string
+      username:
+        example: user123
+        type: string
+    required:
+    - password
+    - username
+    type: object
+host: localhost:3000
+info:
+  contact:
+    email: support@swagger.io
+    name: "804"
+    url: http://www.swagger.io/support  // 可改为公司或项目支持页面的链接
+  description: travel-from-sysu API
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: travel-from-sysu API
+  version: "1.0"
+paths:
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: 用户注册，接收用户名和密码并生成用户账号
+      parameters:
+      - description: 用户注册信息
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 注册成功返回信息
+          schema:
+            $ref: '#/definitions/controllers.RegisterResponse'
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 用户注册接口
+      tags:
+      - 权限相关接口
+swagger: "2.0"
