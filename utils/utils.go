@@ -21,3 +21,7 @@ func GenerateJWT(username string) (string, error) {
 	signedToken, err := token.SignedString([]byte("secret"))
 	return "Bearer " + signedToken, err
 }
+
+func CheckPwd(hashedPwd, plainPwd string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hashedPwd), []byte(plainPwd))
+}

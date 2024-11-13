@@ -1,8 +1,8 @@
 app:
-  name: TravelFromSysu
+  name: TravelFromSYSU
   port: :3000
 
 database:
-  dsn : root:123@tcp(127.0.0.1:3306)/TravelFromSysu?charset=utf8mb4&parseTime=True&loc=Local
+  dsn : root:524399@tcp(127.0.0.1:3306)/TravelFromSYSU?charset=utf8mb4&parseTime=True&loc=Local
   MaxIdleConns : 11
   MaxOpenConns : 114
