@@ -8,6 +8,15 @@ import (
 	"travel-from-sysu-backend/utils"
 )
 
+// UserRegisterRequest 注册请求参数
+type UserRegisterRequest struct {
+	Username    string `json:"username" example:"user123" binding:"required"`
+	Password    string `json:"password" example:"password123" binding:"required"`
+	Phone       string `json:"phone"`
+	Email       string `json:"email"`
+	Description string `json:"description"`
+}
+
 // RegisterResponse 注册成功的返回信息
 type RegisterResponse struct {
 	Status string      `json:"status"`
@@ -43,13 +52,13 @@ type LoginResponse struct {
 // @Tags 权限相关接口
 // @Accept application/json
 // @Produce application/json
-// @Param user body models.UserRegisterRequest true "用户注册信息"
+// @Param user body UserRegisterRequest true "用户注册信息"
 // @Success 200 {object} RegisterResponse "注册成功返回信息"
 // @Failure 400 {object} ErrorResponse "请求参数错误"
 // @Failure 500 {object} ErrorResponse "服务器内部错误"
 // @Router /register [post]
 func Register(ctx *gin.Context) {
-	var req models.UserRegisterRequest
+	var req UserRegisterRequest
 
 	// 绑定 JSON 数据到 UserRegisterRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {

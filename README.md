@@ -72,7 +72,7 @@ go install github.com/swaggo/swag/cmd/swag@latest
 
 > 对于mac可参考下图加戏到系统路径里：
 
-![img](https://svda6q665m8.feishu.cn/space/api/box/stream/download/asynccode/?code=YmFlOGYzYzRkNDk2NmFlNDliYzE3ZmI0ZjNlZmY4YTVfNUpzejUxS1hiWmFSdkhXdWNSTXZXQUM5VGRmZTE2dzBfVG9rZW46WWtVRmJ0VmJNb3ZMcUh4M2JRSGNhZXRrbnRlXzE3MzEzODg0MDk6MTczMTM5MjAwOV9WNA)
+![1280X1280](assets/1280X1280.PNG)
 
 #### 2. 生成 Swagger 文档
 

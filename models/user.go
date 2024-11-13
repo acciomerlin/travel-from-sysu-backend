@@ -18,12 +18,3 @@ type User struct {
 	Email       string `gorm:"type:varchar(255);"`
 	Description string // 个人简介
 }
-
-// UserRegisterRequest 注册请求参数
-type UserRegisterRequest struct {
-	Username    string `json:"username" example:"user123" binding:"required"`
-	Password    string `json:"password" example:"password123" binding:"required"`
-	Phone       string `json:"phone"`
-	Email       string `json:"email"`
-	Description string `json:"description"`
-}
