@@ -25,6 +25,14 @@ func SetupRouter() *gin.Engine {
 		//})
 		auth.POST("/register", controllers.Register)
 		auth.POST("/login", controllers.Login)
+		auth.POST("/changePwd", controllers.ChangePwd)
+		auth.POST("/changeName", controllers.ChangeName)
+		auth.GET("/getNameByID", controllers.GetNameByID)
+	}
+
+	note := r.Group("/api/note")
+	{
+		note.POST("/publishNote", controllers.PublishNote)
 	}
 
 	return r

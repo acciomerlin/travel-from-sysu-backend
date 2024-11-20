@@ -8,13 +8,13 @@ import (
 
 // User 用户数据结构
 type User struct {
-	ID          uint       `json:"id" gorm:"primary_key"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	DeletedAt   *time.Time `json:"deleted_at" sql:"index"`
-	Username    string     `gorm:"unique"`
-	Password    string
-	Phone       string `gorm:"type:varchar(255);"`
-	Email       string `gorm:"type:varchar(255);"`
-	Description string // 个人简介
+	ID          uint       `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
+	CreatedAt   time.Time  `gorm:"column:createdAt" json:"createdAt"`
+	UpdatedAt   time.Time  `gorm:"column:updatedAt" json:"updatedAt"`
+	DeletedAt   *time.Time `gorm:"index;column:deletedAt" json:"deletedAt"`
+	Username    string     `gorm:"unique;column:username" json:"username"`
+	Password    string     `gorm:"column:password" json:"password"`
+	Phone       string     `gorm:"type:varchar(255);column:phone" json:"phone"`
+	Email       string     `gorm:"type:varchar(255);column:email" json:"email"`
+	Description string     `gorm:"column:description" json:"description"` // 个人简介
 }
