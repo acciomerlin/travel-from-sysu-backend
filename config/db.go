@@ -12,7 +12,11 @@ import (
 
 func InitDB() {
 	dsn := AppCongfig.Database.Dsn
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+		//NamingStrategy: schema.NamingStrategy{
+		//	NoLowerCase: true, // 禁用下划线风格转换
+		//},
+	})
 
 	if err != nil {
 		log.Fatalf("Fail to initialize database, got error: %v", err)
