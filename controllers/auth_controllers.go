@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"travel-from-sysu-backend/global"
@@ -67,14 +66,14 @@ type ChangeNameRequest struct {
 	NewUsername string `json:"new_username" binding:"required"` // 新用户名
 }
 
-// ChangePwdResponse 修改用户名响应体
+// ChangeNameResponse 修改用户名响应体
 type ChangeNameResponse struct {
 	Status string `json:"status"`
 	Code   int    `json:"code"`
 	Error  string `json:"error"`
 }
 
-// FindUsernameByIDResponse 查找用户名成功的返回信息
+// GetNameByIDResponse 查找用户名成功的返回信息
 type GetNameByIDResponse struct {
 	Status   string `json:"status"`
 	Code     int    `json:"code"`
@@ -82,7 +81,7 @@ type GetNameByIDResponse struct {
 	Error    string `json:"error,omitempty"`
 }
 
-// @ChangePwd 修改密码接口
+// Register @ChangePwd 修改密码接口
 // @Register 用户注册接口
 // @Summary 用户注册接口
 // @Description 用户注册，接收用户名和密码并生成用户账号
@@ -262,6 +261,18 @@ func Login(ctx *gin.Context) {
 	})
 }
 
+// ChangePwd 修改密码接口
+// @Summary 修改密码接口
+// @Description 用户可以通过提供用户名、旧密码和新密码来修改密码
+// @Tags 权限相关接口
+// @Accept application/json
+// @Produce application/json
+// @Param data body ChangePwdRequest true "修改密码请求参数"
+// @Success 200 {object} ChangePwdResponse "密码修改成功响应信息"
+// @Failure 400 {object} ErrorResponse "请求参数错误"
+// @Failure 401 {object} ErrorResponse "用户不存在或旧密码错误"
+// @Failure 500 {object} ErrorResponse "服务器内部错误"
+// @Router /changePwd [post]
 func ChangePwd(ctx *gin.Context) {
 	var req ChangePwdRequest
 
@@ -325,7 +336,18 @@ func ChangePwd(ctx *gin.Context) {
 	})
 }
 
-// 修改用户名
+// ChangeName 修改用户名接口
+// @Summary 修改用户名接口
+// @Description 用户可以通过提供旧用户名和新用户名来修改用户名
+// @Tags 用户相关接口
+// @Accept application/json
+// @Produce application/json
+// @Param data body ChangeNameRequest true "修改用户名请求参数"
+// @Success 200 {object} ChangeNameResponse "用户名修改成功响应信息"
+// @Failure 400 {object} ErrorResponse "请求参数错误"
+// @Failure 401 {object} ErrorResponse "用户不存在"
+// @Failure 500 {object} ErrorResponse "服务器内部错误"
+// @Router /changeName [post]
 func ChangeName(ctx *gin.Context) {
 	var req ChangeNameRequest
 
@@ -368,6 +390,17 @@ func ChangeName(ctx *gin.Context) {
 	})
 }
 
+// GetNameByID 根据用户ID获取用户名接口
+// @Summary 根据用户ID获取用户名接口
+// @Description 根据提供的用户ID查找对应的用户名
+// @Tags 用户相关接口
+// @Accept application/json
+// @Produce application/json
+// @Param id query string true "用户ID"
+// @Success 200 {object} GetNameByIDResponse "用户名查找成功响应信息"
+// @Failure 400 {object} ErrorResponse "请求参数错误"
+// @Failure 404 {object} ErrorResponse "用户未找到"
+// @Router /getNameByID [get]
 func GetNameByID(ctx *gin.Context) {
 	// 从查询字符串中获取参数
 	id := ctx.DefaultQuery("id", "")
@@ -391,8 +424,6 @@ func GetNameByID(ctx *gin.Context) {
 		})
 		return
 	}
-
-	fmt.Printf("User found: %+v\n", user) // %+v 会打印结构体字段名和值
 
 	// 成功响应
 	ctx.JSON(http.StatusOK, GetNameByIDResponse{

@@ -37,7 +37,13 @@ func InitDB() {
 	// 再迁移 tag 表
 	err = db.AutoMigrate(&models.Tag{})
 	if err != nil {
-		log.Fatalf("Error migrating Follower table: %v", err)
+		log.Fatalf("Error migrating Tag table: %v", err)
+	}
+
+	// 再迁移 note 表
+	err = db.AutoMigrate(&models.Note{})
+	if err != nil {
+		log.Fatalf("Error migrating Note table: %v", err)
 	}
 
 	if err != nil {

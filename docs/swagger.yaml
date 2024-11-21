@@ -1,6 +1,143 @@
 basePath: /api/auth
 definitions:
+  controllers.ChangeNameRequest:
+    properties:
+      new_username:
+        description: 新用户名
+        type: string
+      old_username:
+        description: 旧用户名
+        type: string
+    required:
+    - new_username
+    - old_username
+    type: object
+  controllers.ChangeNameResponse:
+    properties:
+      code:
+        type: integer
+      error:
+        type: string
+      status:
+        type: string
+    type: object
+  controllers.ChangePwdRequest:
+    properties:
+      new_password:
+        description: 新密码
+        type: string
+      old_password:
+        description: 旧密码
+        type: string
+      username:
+        description: 用户名
+        type: string
+    required:
+    - new_password
+    - old_password
+    - username
+    type: object
+  controllers.ChangePwdResponse:
+    properties:
+      code:
+        type: integer
+      error:
+        type: string
+      status:
+        type: string
+    type: object
   controllers.ErrorResponse:
+    properties:
+      code:
+        type: integer
+      error:
+        type: string
+      status:
+        type: string
+    type: object
+  controllers.FollowRequest:
+    properties:
+      current_user_id:
+        description: 当前用户ID
+        type: integer
+      target_user_id:
+        description: 目标用户ID
+        type: integer
+    required:
+    - current_user_id
+    - target_user_id
+    type: object
+  controllers.FollowResponse:
+    properties:
+      code:
+        description: 状态码
+        type: integer
+      fstatus:
+        description: 关注状态，例如 "follows" 或 "unfollows"
+        type: string
+      msg:
+        description: 消息
+        type: string
+      success:
+        description: 操作是否成功
+        type: boolean
+    type: object
+  controllers.GetNameByIDResponse:
+    properties:
+      code:
+        type: integer
+      error:
+        type: string
+      status:
+        type: string
+      username:
+        type: string
+    type: object
+  controllers.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  controllers.LoginResponse:
+    properties:
+      code:
+        type: integer
+      status:
+        type: string
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/models.User'
+    type: object
+  controllers.PublishNoteRequest:
+    properties:
+      noteContent:
+        type: string
+      noteCount:
+        type: integer
+      noteCreatorID:
+        type: integer
+      noteTagList:
+        description: 使用数组类型
+        items:
+          type: string
+        type: array
+      noteTitle:
+        type: string
+      noteType:
+        type: string
+      noteURLs:
+        type: string
+    required:
+    - noteContent
+    - noteTitle
+    type: object
+  controllers.PublishNoteResponse:
     properties:
       code:
         type: integer
@@ -20,25 +157,28 @@ definitions:
       user:
         $ref: '#/definitions/models.User'
     type: object
-  models.User:
+  controllers.UnfollowRequest:
     properties:
-      created_at:
-        type: string
-      deleted_at:
-        type: string
-      id:
+      current_user_id:
+        description: 当前用户ID
         type: integer
-      password:
-        type: string
-      updated_at:
-        type: string
-      username:
-        type: string
+      target_user_id:
+        description: 目标用户ID
+        type: integer
+    required:
+    - current_user_id
+    - target_user_id
     type: object
-  models.UserRegisterRequest:
+  controllers.UserRegisterRequest:
     properties:
+      description:
+        type: string
+      email:
+        type: string
       password:
         example: password123
+        type: string
+      phone:
         type: string
       username:
         example: user123
@@ -46,6 +186,60 @@ definitions:
     required:
     - password
     - username
+    type: object
+  models.User:
+    properties:
+      avatar:
+        description: 用户头像
+        type: string
+      birthday:
+        description: 生日
+        type: string
+      created_at:
+        description: 创建时间
+        type: string
+      deleted_at:
+        description: 删除时间（软删除支持）
+        type: string
+      description:
+        description: 个人简介
+        type: string
+      email:
+        description: 邮箱
+        type: string
+      fan_count:
+        description: 粉丝人数
+        type: integer
+      follower_count:
+        description: 关注人数
+        type: integer
+      gender:
+        description: '性别 (1: 男, 2: 女, 0: 未知)'
+        type: integer
+      password:
+        description: 密码
+        type: string
+      phone:
+        description: 手机号
+        type: string
+      status:
+        description: '状态 (0: 正常, 1: 禁用)'
+        type: integer
+      trend_count:
+        description: 动态数量
+        type: integer
+      uid:
+        description: 用户ID，从100001开始递增
+        type: integer
+      updated_at:
+        description: 更新时间
+        type: string
+      user_cover:
+        description: 用户封面
+        type: string
+      username:
+        description: 用户名
+        type: string
     type: object
 host: localhost:3000
 info:
@@ -61,6 +255,197 @@ info:
   title: travel-from-sysu API
   version: "1.0"
 paths:
+  /changeName:
+    post:
+      consumes:
+      - application/json
+      description: 用户可以通过提供旧用户名和新用户名来修改用户名
+      parameters:
+      - description: 修改用户名请求参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.ChangeNameRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 用户名修改成功响应信息
+          schema:
+            $ref: '#/definitions/controllers.ChangeNameResponse'
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: 用户不存在
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 修改用户名接口
+      tags:
+      - 用户相关接口
+  /changePwd:
+    post:
+      consumes:
+      - application/json
+      description: 用户可以通过提供用户名、旧密码和新密码来修改密码
+      parameters:
+      - description: 修改密码请求参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.ChangePwdRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 密码修改成功响应信息
+          schema:
+            $ref: '#/definitions/controllers.ChangePwdResponse'
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: 用户不存在或旧密码错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 修改密码接口
+      tags:
+      - 权限相关接口
+  /follow:
+    post:
+      consumes:
+      - application/json
+      description: 当前用户可以通过此接口关注目标用户
+      parameters:
+      - description: 关注请求参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.FollowRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 关注成功响应信息
+          schema:
+            $ref: '#/definitions/controllers.FollowResponse'
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 用户关注接口
+      tags:
+      - 关注相关接口
+  /getNameByID:
+    get:
+      consumes:
+      - application/json
+      description: 根据提供的用户ID查找对应的用户名
+      parameters:
+      - description: 用户ID
+        in: query
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 用户名查找成功响应信息
+          schema:
+            $ref: '#/definitions/controllers.GetNameByIDResponse'
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: 用户未找到
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 根据用户ID获取用户名接口
+      tags:
+      - 用户相关接口
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: 用户登录，接收用户名和密码并生成访问令牌
+      parameters:
+      - description: 用户登录信息
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登录成功返回信息
+          schema:
+            $ref: '#/definitions/controllers.LoginResponse'
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: 用户名或密码错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 用户登录接口
+      tags:
+      - 权限相关接口
+  /publishNote:
+    post:
+      consumes:
+      - application/json
+      description: 用户通过提供笔记标题、内容等信息来发布一篇新的笔记
+      parameters:
+      - description: 发布笔记请求参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PublishNoteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 笔记发布成功响应信息
+          schema:
+            $ref: '#/definitions/controllers.PublishNoteResponse'
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 发布笔记接口
+      tags:
+      - 笔记相关接口
   /register:
     post:
       consumes:
@@ -72,7 +457,7 @@ paths:
         name: user
         required: true
         schema:
-          $ref: '#/definitions/models.UserRegisterRequest'
+          $ref: '#/definitions/controllers.UserRegisterRequest'
       produces:
       - application/json
       responses:
@@ -91,4 +476,38 @@ paths:
       summary: 用户注册接口
       tags:
       - 权限相关接口
+  /unfollow:
+    post:
+      consumes:
+      - application/json
+      description: 当前用户可以通过此接口取消对目标用户的关注
+      parameters:
+      - description: 取消关注请求参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.UnfollowRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 取消关注成功响应信息
+          schema:
+            $ref: '#/definitions/controllers.FollowResponse'
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: 未找到关注关系
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 用户取消关注接口
+      tags:
+      - 关注相关接口
 swagger: "2.0"

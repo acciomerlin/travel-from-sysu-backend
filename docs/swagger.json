@@ -18,6 +18,298 @@
     "host": "localhost:3000",
     "basePath": "/api/auth",
     "paths": {
+        "/changeName": {
+            "post": {
+                "description": "用户可以通过提供旧用户名和新用户名来修改用户名",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户相关接口"
+                ],
+                "summary": "修改用户名接口",
+                "parameters": [
+                    {
+                        "description": "修改用户名请求参数",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ChangeNameRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "用户名修改成功响应信息",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ChangeNameResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "用户不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/changePwd": {
+            "post": {
+                "description": "用户可以通过提供用户名、旧密码和新密码来修改密码",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "权限相关接口"
+                ],
+                "summary": "修改密码接口",
+                "parameters": [
+                    {
+                        "description": "修改密码请求参数",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ChangePwdRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "密码修改成功响应信息",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ChangePwdResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "用户不存在或旧密码错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/follow": {
+            "post": {
+                "description": "当前用户可以通过此接口关注目标用户",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "关注相关接口"
+                ],
+                "summary": "用户关注接口",
+                "parameters": [
+                    {
+                        "description": "关注请求参数",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.FollowRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "关注成功响应信息",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.FollowResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/getNameByID": {
+            "get": {
+                "description": "根据提供的用户ID查找对应的用户名",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户相关接口"
+                ],
+                "summary": "根据用户ID获取用户名接口",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "用户名查找成功响应信息",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.GetNameByIDResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "用户未找到",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/login": {
+            "post": {
+                "description": "用户登录，接收用户名和密码并生成访问令牌",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "权限相关接口"
+                ],
+                "summary": "用户登录接口",
+                "parameters": [
+                    {
+                        "description": "用户登录信息",
+                        "name": "user",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "登录成功返回信息",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.LoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "用户名或密码错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/publishNote": {
+            "post": {
+                "description": "用户通过提供笔记标题、内容等信息来发布一篇新的笔记",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "笔记相关接口"
+                ],
+                "summary": "发布笔记接口",
+                "parameters": [
+                    {
+                        "description": "发布笔记请求参数",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PublishNoteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "笔记发布成功响应信息",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PublishNoteResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/register": {
             "post": {
                 "description": "用户注册，接收用户名和密码并生成用户账号",
@@ -38,7 +330,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.UserRegisterRequest"
+                            "$ref": "#/definitions/controllers.UserRegisterRequest"
                         }
                     }
                 ],
@@ -63,10 +355,264 @@
                     }
                 }
             }
+        },
+        "/unfollow": {
+            "post": {
+                "description": "当前用户可以通过此接口取消对目标用户的关注",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "关注相关接口"
+                ],
+                "summary": "用户取消关注接口",
+                "parameters": [
+                    {
+                        "description": "取消关注请求参数",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.UnfollowRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "取消关注成功响应信息",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.FollowResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "未找到关注关系",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "controllers.ChangeNameRequest": {
+            "type": "object",
+            "required": [
+                "new_username",
+                "old_username"
+            ],
+            "properties": {
+                "new_username": {
+                    "description": "新用户名",
+                    "type": "string"
+                },
+                "old_username": {
+                    "description": "旧用户名",
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.ChangeNameResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.ChangePwdRequest": {
+            "type": "object",
+            "required": [
+                "new_password",
+                "old_password",
+                "username"
+            ],
+            "properties": {
+                "new_password": {
+                    "description": "新密码",
+                    "type": "string"
+                },
+                "old_password": {
+                    "description": "旧密码",
+                    "type": "string"
+                },
+                "username": {
+                    "description": "用户名",
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.ChangePwdResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "controllers.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.FollowRequest": {
+            "type": "object",
+            "required": [
+                "current_user_id",
+                "target_user_id"
+            ],
+            "properties": {
+                "current_user_id": {
+                    "description": "当前用户ID",
+                    "type": "integer"
+                },
+                "target_user_id": {
+                    "description": "目标用户ID",
+                    "type": "integer"
+                }
+            }
+        },
+        "controllers.FollowResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "状态码",
+                    "type": "integer"
+                },
+                "fstatus": {
+                    "description": "关注状态，例如 \"follows\" 或 \"unfollows\"",
+                    "type": "string"
+                },
+                "msg": {
+                    "description": "消息",
+                    "type": "string"
+                },
+                "success": {
+                    "description": "操作是否成功",
+                    "type": "boolean"
+                }
+            }
+        },
+        "controllers.GetNameByIDResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.LoginRequest": {
+            "type": "object",
+            "required": [
+                "password",
+                "username"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/models.User"
+                }
+            }
+        },
+        "controllers.PublishNoteRequest": {
+            "type": "object",
+            "required": [
+                "noteContent",
+                "noteTitle"
+            ],
+            "properties": {
+                "noteContent": {
+                    "type": "string"
+                },
+                "noteCount": {
+                    "type": "integer"
+                },
+                "noteCreatorID": {
+                    "type": "integer"
+                },
+                "noteTagList": {
+                    "description": "使用数组类型",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "noteTitle": {
+                    "type": "string"
+                },
+                "noteType": {
+                    "type": "string"
+                },
+                "noteURLs": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.PublishNoteResponse": {
             "type": "object",
             "properties": {
                 "code": {
@@ -97,43 +643,119 @@
                 }
             }
         },
-        "models.User": {
+        "controllers.UnfollowRequest": {
             "type": "object",
+            "required": [
+                "current_user_id",
+                "target_user_id"
+            ],
             "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "deleted_at": {
-                    "type": "string"
-                },
-                "id": {
+                "current_user_id": {
+                    "description": "当前用户ID",
                     "type": "integer"
                 },
-                "password": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "username": {
-                    "type": "string"
+                "target_user_id": {
+                    "description": "目标用户ID",
+                    "type": "integer"
                 }
             }
         },
-        "models.UserRegisterRequest": {
+        "controllers.UserRegisterRequest": {
             "type": "object",
             "required": [
                 "password",
                 "username"
             ],
             "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
                 "password": {
                     "type": "string",
                     "example": "password123"
                 },
+                "phone": {
+                    "type": "string"
+                },
                 "username": {
                     "type": "string",
                     "example": "user123"
+                }
+            }
+        },
+        "models.User": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "description": "用户头像",
+                    "type": "string"
+                },
+                "birthday": {
+                    "description": "生日",
+                    "type": "string"
+                },
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "description": "删除时间（软删除支持）",
+                    "type": "string"
+                },
+                "description": {
+                    "description": "个人简介",
+                    "type": "string"
+                },
+                "email": {
+                    "description": "邮箱",
+                    "type": "string"
+                },
+                "fan_count": {
+                    "description": "粉丝人数",
+                    "type": "integer"
+                },
+                "follower_count": {
+                    "description": "关注人数",
+                    "type": "integer"
+                },
+                "gender": {
+                    "description": "性别 (1: 男, 2: 女, 0: 未知)",
+                    "type": "integer"
+                },
+                "password": {
+                    "description": "密码",
+                    "type": "string"
+                },
+                "phone": {
+                    "description": "手机号",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "状态 (0: 正常, 1: 禁用)",
+                    "type": "integer"
+                },
+                "trend_count": {
+                    "description": "动态数量",
+                    "type": "integer"
+                },
+                "uid": {
+                    "description": "用户ID，从100001开始递增",
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string"
+                },
+                "user_cover": {
+                    "description": "用户封面",
+                    "type": "string"
+                },
+                "username": {
+                    "description": "用户名",
+                    "type": "string"
                 }
             }
         }
