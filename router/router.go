@@ -13,19 +13,13 @@ func SetupRouter() *gin.Engine {
 
 	auth := r.Group("/api/auth")
 	{
-		//auth.POST("/login", func(ctx *gin.Context) {
-		//	ctx.AbortWithStatusJSON(http.StatusOK, gin.H{
-		//		"msg": "login success",
-		//	})
-		//})
-		//auth.POST("/register", func(ctx *gin.Context) {
-		//	ctx.AbortWithStatusJSON(http.StatusOK, gin.H{
-		//		"msg": "register success",
-		//	})
-		//})
 		auth.POST("/register", controllers.Register)
 		auth.POST("/login", controllers.Login)
 	}
-
+	user := r.Group("/api/user")
+	{
+		user.POST("/follow", controllers.Follow)
+		user.POST("/unfollow", controllers.Unfollow)
+	}
 	return r
 }
