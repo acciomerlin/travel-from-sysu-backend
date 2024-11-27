@@ -60,14 +60,17 @@ type ChangePwdResponse struct {
 	Error  string `json:"error"`
 }
 
-// ChangeNameRequest 修改用户名请求体
-type ChangeNameRequest struct {
-	OldUsername string `json:"old_username" binding:"required"` // 旧用户名
-	NewUsername string `json:"new_username" binding:"required"` // 新用户名
+// ChangeUserInfoRequest 修改用户名请求体
+type ChangeUserInfoRequest struct {
+	Username    string `json:"username" binding:"required"` // 旧用户名
+	NewUsername string `json:"new_username"`                // 新用户名
+	Description string `json:"description"`
+	Gender      *int   `json:"gender"`
+	Birthday    string `json:"birthday"`
 }
 
-// ChangeNameResponse 修改用户名响应体
-type ChangeNameResponse struct {
+// ChangeUserInfoResponse 修改用户名响应体
+type ChangeUserInfoResponse struct {
 	Status string `json:"status"`
 	Code   int    `json:"code"`
 	Error  string `json:"error"`
@@ -336,7 +339,7 @@ func ChangePwd(ctx *gin.Context) {
 	})
 }
 
-// ChangeName 修改用户名接口
+// ChangeUserInfo 修改用户信息接口
 // @Summary 修改用户名接口
 // @Description 用户可以通过提供旧用户名和新用户名来修改用户名
 // @Tags 用户相关接口
@@ -348,8 +351,8 @@ func ChangePwd(ctx *gin.Context) {
 // @Failure 401 {object} ErrorResponse "用户不存在"
 // @Failure 500 {object} ErrorResponse "服务器内部错误"
 // @Router /changeName [post]
-func ChangeName(ctx *gin.Context) {
-	var req ChangeNameRequest
+func ChangeUserInfo(ctx *gin.Context) {
+	var req ChangeUserInfoRequest
 
 	// 绑定 JSON 数据到 ChangeNameRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -363,7 +366,7 @@ func ChangeName(ctx *gin.Context) {
 
 	// 查找用户
 	var user models.User
-	if err := global.Db.Where("username = ?", req.OldUsername).First(&user).Error; err != nil {
+	if err := global.Db.Where("username = ?", req.Username).First(&user).Error; err != nil {
 		ctx.JSON(http.StatusUnauthorized, ErrorResponse{
 			Status: "失败",
 			Code:   401,
@@ -373,19 +376,22 @@ func ChangeName(ctx *gin.Context) {
 	}
 
 	user.Username = req.NewUsername
+	user.Description = req.Description
+	user.Birthday = req.Birthday
+	user.Gender = req.Gender
 	// 更新数据库中的用户名
 	if err := global.Db.Save(&user).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, ErrorResponse{
 			Status: "失败",
 			Code:   500,
-			Error:  "用户名更新失败",
+			Error:  "用户信息修改失败",
 		})
 		return
 	}
 
 	// 成功响应
-	ctx.JSON(http.StatusOK, ChangeNameResponse{
-		Status: "用户名修改成功",
+	ctx.JSON(http.StatusOK, ChangeUserInfoResponse{
+		Status: "用户信息修改成功",
 		Code:   200,
 	})
 }

@@ -4,14 +4,16 @@ import "time"
 
 // Note 笔记数据结构
 type Note struct {
-	ID             uint      `gorm:"primaryKey" json:"id"`                                                  // 主键 ID
-	NoteTitle      string    `json:"noteTitle"`                                                             // 笔记标题
-	NoteContent    string    `json:"noteContent"`                                                           // 笔记内容
-	NoteCount      int       `json:"noteCount"`                                                             // 计数
-	NoteTagList    string    `json:"noteTagList"`                                                           // 笔记标签列表（字符串类型）
-	NoteType       string    `json:"noteType"`                                                              // 笔记类型
-	NoteURLs       string    `json:"noteURLs"`                                                              // 笔记相关 URL
-	NoteCreatorID  uint      `gorm:"not null;index" json:"noteCreatorID"`                                   // 创建者 ID（外键）
-	NoteCreator    User      `gorm:"foreignKey:NoteCreatorID;AssociationForeignKey:Uid" json:"noteCreator"` // 关联到用户表的外键
-	NoteUpdateTime time.Time `json:"noteUpdateTime"`                                                        // 笔记更新时间
+	NoteID         uint      `gorm:"primaryKey;autoIncrement;autoIncrementStart:100001"" json:"note_id"`     // 主键 ID
+	NoteTitle      string    `json:"note_title"`                                                             // 笔记标题
+	NoteContent    string    `json:"note_content"`                                                           // 笔记内容
+	NoteCount      int       `json:"note_count"`                                                             // 计数
+	NoteTagList    string    `json:"note_tag_list"`                                                          // 笔记标签列表（字符串类型）
+	NoteType       string    `json:"note_type"`                                                              // 笔记类型
+	NoteURLs       string    `json:"note_URLs"`                                                              // 笔记相关 URL
+	NoteCreatorID  uint      `gorm:"not null;index" json:"note_creator_id"`                                  // 创建者 ID（外键）
+	NoteCreator    User      `gorm:"foreignKey:NoteCreatorID;AssociationForeignKey:Uid" json:"note_creator"` // 关联到用户表的外键
+	NoteUpdateTime time.Time `json:"note_update_time"`                                                       // 笔记更新时间
+	NoteLike       int       `json:"note_like"`
+	NoteFavorite   int       `json:"note_favorite"`
 }
