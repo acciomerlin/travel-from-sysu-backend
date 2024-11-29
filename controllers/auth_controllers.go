@@ -25,13 +25,6 @@ type RegisterResponse struct {
 	User   models.User `json:"user"`
 }
 
-// ErrorResponse 错误返回信息
-type ErrorResponse struct {
-	Status string `json:"status"`
-	Code   int    `json:"code"`
-	Error  string `json:"error"`
-}
-
 // LoginRequest 登录请求体
 type LoginRequest struct {
 	Username string `json:"username" binding:"required"`

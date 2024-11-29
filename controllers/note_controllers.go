@@ -3,6 +3,7 @@ package controllers
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 	"travel-from-sysu-backend/global"
@@ -92,7 +93,7 @@ func PublishNote(ctx *gin.Context) {
 		NoteType:       req.NoteType,
 		NoteURLs:       req.NoteURLs,
 		NoteCreatorID:  req.NoteCreatorID,
-		NoteUpdateTime: time.Now(),
+		NoteUpdateTime: time.Now().Unix(), // 设置时间戳
 	}
 
 	// 保存到数据库
@@ -217,7 +218,7 @@ func UpdateNote(ctx *gin.Context) {
 	if req.NoteURLs != "" {
 		note.NoteURLs = req.NoteURLs
 	}
-	note.NoteUpdateTime = time.Now() // 更新更新时间
+	note.NoteUpdateTime = time.Now().Unix() // 设置时间戳
 
 	// 保存更新到数据库
 	if err := global.Db.Save(&note).Error; err != nil {
@@ -233,5 +234,104 @@ func UpdateNote(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, UpdateNoteResponse{
 		Status: "笔记更新成功",
 		Code:   200,
+	})
+}
+
+// GetFoNotes 获取用户关注用户的帖子，支持游标分页，使用时间戳
+func GetFoNotes(ctx *gin.Context) {
+	// 获取请求参数
+	userID := ctx.Query("user_id")
+	num := ctx.Query("num")
+	cursor := ctx.Query("cursor") // 游标，用于分页（时间戳）
+
+	// 参数校验
+	if userID == "" || num == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"success": false,
+			"msg":     "参数缺失",
+		})
+		return
+	}
+
+	// 默认最大条数
+	limit := 30
+	if n, err := strconv.Atoi(num); err == nil && n > 0 && n < 30 {
+		limit = n
+	}
+
+	// 查询用户关注的用户 ID
+	var followers []models.Follower
+	if err := global.Db.Where("uid = ?", userID).Find(&followers).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"success": false,
+			"msg":     "查询关注信息失败",
+		})
+		return
+	}
+
+	// 获取关注的用户 ID 列表
+	var followedUserIDs []uint
+	for _, follower := range followers {
+		followedUserIDs = append(followedUserIDs, follower.Fid)
+	}
+
+	// 构造查询条件
+	query := global.Db.Where("note_creator_id IN ?", followedUserIDs)
+	if cursor != "" {
+		// 游标为时间戳（Unix 时间）
+		if timestamp, err := strconv.ParseInt(cursor, 10, 64); err == nil {
+			query = query.Where("note_update_time < ?", timestamp) // 返回最近更新的帖子，所以 <
+		} else {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"code":    400,
+				"success": false,
+				"msg":     "无效的游标参数",
+			})
+			return
+		}
+	}
+
+	// 查询帖子数据
+	var notes []models.Note
+	if err := query.Order("note_update_time DESC").Limit(limit).Find(&notes).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"success": false,
+			"msg":     "查询笔记失败",
+		})
+		return
+	}
+
+	// 构造返回结果
+	var responseNotes []gin.H
+	var nextCursor string
+	for _, note := range notes {
+		responseNotes = append(responseNotes, gin.H{
+			"note_id":          note.NoteID,
+			"note_title":       note.NoteTitle,
+			"note_content":     note.NoteContent,
+			"note_like":        note.NoteLike,
+			"note_favorite":    note.NoteFavorite,
+			"note_creator_id":  note.NoteCreatorID,
+			"note_update_time": note.NoteUpdateTime, // 时间戳直接返回，前端要解析！
+		})
+	}
+
+	// 设置下一个游标
+	if len(notes) > 0 {
+		nextCursor = strconv.FormatInt(notes[len(notes)-1].NoteUpdateTime, 10)
+	}
+
+	// 返回结果
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"success": true,
+		"msg":     "成功",
+		"data": gin.H{
+			"notes":      responseNotes,
+			"nextCursor": nextCursor, // 下次分页使用的游标
+		},
 	})
 }

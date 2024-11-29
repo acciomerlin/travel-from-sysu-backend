@@ -25,12 +25,16 @@ func SetupRouter() *gin.Engine {
 		note.POST("/deleteNote", controllers.DeleteNote)
 		note.POST("/updateNote", controllers.UpdateNote)
 		note.GET("/getNoteById", controllers.GetNoteByID)
-		note.GET("/api/note/getNotesByCreatorId", controllers.GetNotesByCreatorID)
+		note.GET("/getNotesByCreatorId", controllers.GetNotesByCreatorID)
+		note.GET("/getUserFoNotes", controllers.GetFoNotes)
 	}
 	user := r.Group("/api/user")
 	{
 		user.POST("/follow", controllers.Follow)
 		user.POST("/unfollow", controllers.Unfollow)
+		user.GET("/getUserFoCounts", controllers.GetUserFoCounts)
+		user.GET("/getFollowees", controllers.GetFolloweesWithPagination)
+		user.GET("/getFollowers", controllers.GetFollowersWithPagination)
 	}
 	comment := r.Group("/api/comment")
 	{
