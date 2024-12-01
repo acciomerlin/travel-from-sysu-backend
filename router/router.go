@@ -19,6 +19,7 @@ func SetupRouter() *gin.Engine {
 		auth.POST("/changeUserInfo", controllers.ChangeUserInfo)
 		auth.GET("/getNameByID", controllers.GetNameByID)
 		auth.POST("/uploadAvatar", controllers.UploadAvatar)
+		auth.GET("/getAvatar", controllers.GetAvatar)
 	}
 	note := r.Group("/api/note")
 	{

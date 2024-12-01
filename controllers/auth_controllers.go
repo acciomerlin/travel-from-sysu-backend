@@ -498,3 +498,32 @@ func UploadAvatar(ctx *gin.Context) {
 		"avatar":  filePath,
 	})
 }
+
+// GetAvatar 获取用户头像
+func GetAvatar(ctx *gin.Context) {
+	// 获取用户ID
+	uid := ctx.Query("uid")
+	if uid == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "缺少用户ID"})
+		return
+	}
+
+	// 查找用户
+	var user models.User
+	if err := global.Db.Where("user_id = ?", uid).First(&user).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "用户未找到"})
+		return
+	}
+
+	// 检查是否设置了头像
+	if user.Avatar == "" {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "用户未设置头像"})
+		return
+	}
+
+	// 返回头像URL
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "获取头像成功",
+		"avatar":  user.Avatar,
+	})
+}
