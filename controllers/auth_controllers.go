@@ -1,10 +1,14 @@
 package controllers
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"path/filepath"
+	"strings"
 	"travel-from-sysu-backend/global"
 	"travel-from-sysu-backend/models"
+	"travel-from-sysu-backend/oss"
 	"travel-from-sysu-backend/utils"
 )
 
@@ -429,5 +433,68 @@ func GetNameByID(ctx *gin.Context) {
 		Status:   "成功",
 		Code:     200,
 		Username: user.Username,
+	})
+}
+
+// UploadAvatar 用户头像上传接口
+func UploadAvatar(ctx *gin.Context) {
+	// 获取用户ID
+	uid := ctx.PostForm("uid")
+	if uid == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "缺少用户ID"})
+		return
+	}
+
+	// 获取上传的文件
+	file, err := ctx.FormFile("file")
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "获取文件失败: " + err.Error()})
+		return
+	}
+
+	// 文件大小<5mb
+	const minFileSize = 5 * 1024 * 1024 // 5MB
+	if file.Size > minFileSize {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("文件大小不能小于 %dMB", minFileSize/(1024*1024))})
+		return
+	}
+
+	// 校验文件类型
+	allowedExtensions := []string{".jpg", ".jpeg", ".png", ".webp"}
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	isAllowed := false
+	for _, allowedExt := range allowedExtensions {
+		if ext == allowedExt {
+			isAllowed = true
+			break
+		}
+	}
+	if !isAllowed {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "文件类型不支持，仅支持 jpg、png、webp 格式"})
+		return
+	}
+
+	// 将文件上传到阿里云 OSS
+	filePath, err := oss.UploadAliyunOss(file)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "OSS上传失败: " + err.Error()})
+		return
+	}
+
+	// 更新用户表的 avatar 字段
+	var user models.User
+	if err := global.Db.First(&user, uid).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "用户未找到"})
+		return
+	}
+	user.Avatar = filePath
+	if err := global.Db.Save(&user).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "更新用户头像失败: " + err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "头像上传成功",
+		"avatar":  filePath,
 	})
 }
