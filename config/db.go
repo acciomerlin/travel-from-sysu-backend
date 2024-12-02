@@ -46,6 +46,12 @@ func InitDB() {
 		log.Fatalf("Error migrating Note table: %v", err)
 	}
 
+	// 再迁移 tag_note_relation 表
+	err = db.AutoMigrate(&models.TagNoteRelation{})
+	if err != nil {
+		log.Fatalf("Error migrating tag_note_relation table: %v", err)
+	}
+
 	if err != nil {
 		log.Fatalf("Fail to initialize database, got error: %v", err)
 	}
