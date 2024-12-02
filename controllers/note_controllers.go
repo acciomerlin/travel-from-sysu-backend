@@ -76,7 +76,7 @@ func PublishNote(ctx *gin.Context) {
 	note := models.Note{
 		NoteTitle:      req.NoteTitle,
 		NoteContent:    req.NoteContent,
-		NoteCount:      req.NoteCount,
+		ViewCount:      req.NoteCount,
 		NoteTagList:    strings.Join(req.NoteTagList, ","), // 将数组转换为字符串存储
 		NoteType:       req.NoteType,
 		NoteURLs:       req.NoteURLs,
@@ -426,8 +426,8 @@ func GetFoNotes(ctx *gin.Context) {
 			"note_id":          note.NoteID,
 			"note_title":       note.NoteTitle,
 			"note_content":     note.NoteContent,
-			"note_like":        note.NoteLike,
-			"note_favorite":    note.NoteFavorite,
+			"like_counts":      note.LikeCounts,
+			"collect_counts":   note.CollectCounts,
 			"note_creator_id":  note.NoteCreatorID,
 			"note_update_time": note.NoteUpdateTime, // 时间戳直接返回，前端要解析！
 		})

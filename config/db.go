@@ -27,29 +27,35 @@ func InitDB() {
 	if err != nil {
 		log.Fatalf("Error migrating User table: %v", err)
 	}
-
 	// 再迁移 Follower 表
 	err = db.AutoMigrate(&models.Follower{})
 	if err != nil {
 		log.Fatalf("Error migrating Follower table: %v", err)
 	}
-
 	// 再迁移 tag 表
 	err = db.AutoMigrate(&models.Tag{})
 	if err != nil {
 		log.Fatalf("Error migrating Tag table: %v", err)
 	}
-
 	// 再迁移 note 表
 	err = db.AutoMigrate(&models.Note{})
 	if err != nil {
 		log.Fatalf("Error migrating Note table: %v", err)
 	}
-
 	// 再迁移 tag_note_relation 表
 	err = db.AutoMigrate(&models.TagNoteRelation{})
 	if err != nil {
 		log.Fatalf("Error migrating tag_note_relation table: %v", err)
+	}
+	// 再迁移 like 表
+	err = db.AutoMigrate(&models.Like{})
+	if err != nil {
+		log.Fatalf("Error migrating like table: %v", err)
+	}
+	// 再迁移 collect 表
+	err = db.AutoMigrate(&models.Collect{})
+	if err != nil {
+		log.Fatalf("Error migrating collect table: %v", err)
 	}
 
 	if err != nil {

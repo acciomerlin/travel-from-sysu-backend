@@ -29,6 +29,10 @@ func SetupRouter() *gin.Engine {
 		note.GET("/getNoteById", controllers.GetNoteByID)
 		note.GET("/getNotesByCreatorId", controllers.GetNotesByCreatorID)
 		note.GET("/getUserFoNotes", controllers.GetFoNotes)
+		note.POST("/like", controllers.Like)
+		note.POST("/dislike", controllers.Dislike)
+		note.POST("/collect", controllers.Collect)
+		note.POST("/uncollect", controllers.Uncollect)
 	}
 	user := r.Group("/api/user")
 	{
