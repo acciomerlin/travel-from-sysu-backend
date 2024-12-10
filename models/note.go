@@ -10,7 +10,8 @@ type Note struct {
 	NoteType       string `json:"note_type"`                                                         // 笔记类型
 	NoteURLs       string `json:"note_URLs"`                                                         // 笔记相关 URL
 	NoteCreatorID  uint   `gorm:"not null;index" json:"note_creator_id"`                             // 创建者 ID（外键）
-	NoteUpdateTime int64  `json:"note_update_time"`                                                  // 笔记更新时间 (Unix 时间戳)
+	User           User   `gorm:"foreignKey:NoteCreatorID;AssociationForeignKey:NoteCreatorID"`
+	NoteUpdateTime int64  `json:"note_update_time"` // 笔记更新时间 (Unix 时间戳)
 	LikeCounts     int    `json:"like_counts"`
 	CollectCounts  int    `json:"collect_counts"`
 }

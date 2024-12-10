@@ -29,6 +29,8 @@ func SetupRouter() *gin.Engine {
 		note.GET("/getNoteById", controllers.GetNoteByID)
 		note.GET("/getNotesByCreatorId", controllers.GetNotesByCreatorID)
 		note.GET("/getUserFoNotes", controllers.GetFoNotes)
+		note.GET("/getUserLikeNotes", controllers.GetLikedNotes)
+		note.GET("/getUserCollectNotes", controllers.GetCollectedNotes)
 		note.POST("/like", controllers.Like)
 		note.POST("/dislike", controllers.Dislike)
 		note.POST("/collect", controllers.Collect)
@@ -41,6 +43,7 @@ func SetupRouter() *gin.Engine {
 		user.GET("/getUserFoCounts", controllers.GetUserFoCounts)
 		user.GET("/getFollowees", controllers.GetFolloweesWithPagination)
 		user.GET("/getFollowers", controllers.GetFollowersWithPagination)
+		user.GET("/getUserNoteCounts", controllers.GetNoteCountsByID)
 	}
 	comment := r.Group("/api/comment")
 	{

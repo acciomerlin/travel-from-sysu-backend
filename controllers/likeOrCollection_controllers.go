@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"fmt"
 	"gorm.io/gorm"
 	"net/http"
 	"strings"
@@ -50,7 +49,6 @@ func Like(ctx *gin.Context) {
 
 	// 添加 Like 表记录
 	like := models.Like{
-		ID:         fmt.Sprintf("%d-%d-%d", req.Uid, req.NoteID, time.Now().UnixNano()),
 		Uid:        req.Uid,
 		Nid:        req.NoteID,
 		CreateDate: time.Now(),
@@ -59,7 +57,7 @@ func Like(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, LikeOrCollectResponse{
 			Status: "失败",
 			Code:   500,
-			Error:  "点赞失败",
+			Error:  "点赞失败：" + err.Error(),
 		})
 		return
 	}
@@ -187,7 +185,6 @@ func Collect(ctx *gin.Context) {
 
 	// 添加 Collect 表记录
 	collect := models.Collect{
-		ID:         fmt.Sprintf("%d-%d-%d", req.Uid, req.NoteID, time.Now().UnixNano()),
 		Uid:        req.Uid,
 		Nid:        req.NoteID,
 		CreateDate: time.Now(),
