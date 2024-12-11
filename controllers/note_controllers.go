@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -227,7 +228,19 @@ func PublishNote(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, ErrorResponse{
 			Status: "失败",
 			Code:   500,
-			Error:  "笔记发布失败",
+			Error:  "笔记发布失败：" + err.Error(),
+		})
+		return
+	}
+
+	// 更新用户的 NoteCount 字段
+	if err := global.Db.Model(&models.User{}).
+		Where("user_id = ?", req.NoteCreatorID).
+		Update("note_count", gorm.Expr("note_count + ?", 1)).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, ErrorResponse{
+			Status: "失败",
+			Code:   500,
+			Error:  "更新用户 NoteCount 失败",
 		})
 		return
 	}
@@ -339,12 +352,37 @@ func DeleteNote(ctx *gin.Context) {
 		fmt.Printf("[DEBUG] Failed to find TagNoteRelation for NoteID %d: %s\n", req.NoteID, err) // 打印未找到 TagNoteRelation 的错误信息
 	}
 
+	// 查找笔记以获取创建者 ID
+	var note models.Note
+	if err := global.Db.Where("note_id = ?", req.NoteID).First(&note).Error; err == nil {
+		// 更新创建者的 NoteCount 字段
+		if err := global.Db.Model(&models.User{}).
+			Where("user_id = ?", note.NoteCreatorID).
+			Update("note_count", gorm.Expr("note_count - ?", 1)).Error; err != nil {
+			fmt.Printf("[ERROR] Failed to update User's NoteCount for UserID %d: %s\n", note.NoteCreatorID, err)
+			ctx.JSON(http.StatusInternalServerError, ErrorResponse{
+				Status: "失败",
+				Code:   500,
+				Error:  "删除笔记失败:" + err.Error(),
+			})
+			return
+		}
+	} else {
+		fmt.Printf("[ERROR] Failed to find Note with ID %d: %s\n", req.NoteID, err)
+		ctx.JSON(http.StatusInternalServerError, ErrorResponse{
+			Status: "失败",
+			Code:   500,
+			Error:  "删除笔记失败:" + err.Error(),
+		})
+		return
+	}
+
 	// 删除 Note
 	if err := global.Db.Delete(&models.Note{}, req.NoteID).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, ErrorResponse{
 			Status: "失败",
 			Code:   500,
-			Error:  "删除笔记失败",
+			Error:  "删除笔记失败:" + err.Error(),
 		})
 		return
 	}
@@ -579,12 +617,198 @@ func GetFoNotes(ctx *gin.Context) {
 
 	// 返回结果
 	ctx.JSON(http.StatusOK, gin.H{
-		"code":    0,
+		"code":    200,
 		"success": true,
 		"msg":     "成功",
 		"data": gin.H{
 			"notes":      responseNotes,
 			"nextCursor": nextCursor, // 下次分页使用的游标
+		},
+	})
+}
+
+// GetLikedNotes 获取用户点赞的帖子
+func GetLikedNotes(ctx *gin.Context) {
+	userID := ctx.Query("user_id")
+	num := ctx.Query("num")
+	cursor := ctx.Query("cursor")
+
+	if userID == "" || num == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"success": false,
+			"msg":     "参数缺失",
+		})
+		return
+	}
+
+	limit := 30
+	if n, err := strconv.Atoi(num); err == nil && n > 0 && n < 30 {
+		limit = n
+	}
+
+	query := global.Db.Where("uid = ?", userID)
+	if cursor != "" {
+		if timestamp, err := strconv.ParseInt(cursor, 10, 64); err == nil {
+			query = query.Where("create_date < ?", time.Unix(timestamp, 0))
+		} else {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"code":    400,
+				"success": false,
+				"msg":     "无效的游标参数",
+			})
+			return
+		}
+	}
+
+	var likes []models.Like
+	if err := query.Order("create_date DESC").Limit(limit).Find(&likes).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"success": false,
+			"msg":     "查询点赞记录失败",
+		})
+		return
+	}
+
+	var noteIDs []uint
+	for _, like := range likes {
+		noteIDs = append(noteIDs, like.Nid)
+	}
+
+	var notes []models.Note
+	if err := global.Db.Where("note_id IN ?", noteIDs).Find(&notes).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"success": false,
+			"msg":     "查询笔记失败",
+		})
+		return
+	}
+
+	var responseNotes []gin.H
+	var nextCursor string
+	for _, note := range notes {
+		responseNotes = append(responseNotes, gin.H{
+			"note_id":          note.NoteID,
+			"note_title":       note.NoteTitle,
+			"note_content":     note.NoteContent,
+			"like_counts":      note.LikeCounts,
+			"collect_counts":   note.CollectCounts,
+			"note_creator_id":  note.NoteCreatorID,
+			"note_update_time": note.NoteUpdateTime,
+		})
+	}
+
+	if len(likes) > 0 {
+		nextCursor = strconv.FormatInt(likes[len(likes)-1].CreateDate.Unix(), 10)
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"success": true,
+		"msg":     "成功",
+		"data": gin.H{
+			"notes":      responseNotes,
+			"nextCursor": nextCursor,
+		},
+	})
+}
+
+// GetCollectedNotes 获取用户收藏的帖子
+func GetCollectedNotes(ctx *gin.Context) {
+	// 获取请求参数
+	userID := ctx.Query("user_id")
+	num := ctx.Query("num")
+	cursor := ctx.Query("cursor") // 游标，用于分页（时间戳）
+
+	// 参数校验
+	if userID == "" || num == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"success": false,
+			"msg":     "参数缺失",
+		})
+		return
+	}
+
+	// 默认最大条数
+	limit := 30
+	if n, err := strconv.Atoi(num); err == nil && n > 0 && n < 30 {
+		limit = n
+	}
+
+	// 构造查询条件
+	query := global.Db.Where("uid = ?", userID)
+	if cursor != "" {
+		// 游标为时间戳（Unix 时间）
+		if timestamp, err := strconv.ParseInt(cursor, 10, 64); err == nil {
+			query = query.Where("create_date < ?", time.Unix(timestamp, 0))
+		} else {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"code":    400,
+				"success": false,
+				"msg":     "无效的游标参数",
+			})
+			return
+		}
+	}
+
+	// 查询收藏记录
+	var collects []models.Collect
+	if err := query.Order("create_date DESC").Limit(limit).Find(&collects).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"success": false,
+			"msg":     "查询收藏记录失败",
+		})
+		return
+	}
+
+	// 获取收藏的笔记详情
+	var noteIDs []uint
+	for _, collect := range collects {
+		noteIDs = append(noteIDs, collect.Nid)
+	}
+
+	var notes []models.Note
+	if err := global.Db.Where("note_id IN ?", noteIDs).Find(&notes).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"success": false,
+			"msg":     "查询笔记失败",
+		})
+		return
+	}
+
+	// 构造返回结果
+	var responseNotes []gin.H
+	var nextCursor string
+	for _, note := range notes {
+		responseNotes = append(responseNotes, gin.H{
+			"note_id":          note.NoteID,
+			"note_title":       note.NoteTitle,
+			"note_content":     note.NoteContent,
+			"like_counts":      note.LikeCounts,
+			"collect_counts":   note.CollectCounts,
+			"note_creator_id":  note.NoteCreatorID,
+			"note_update_time": note.NoteUpdateTime,
+		})
+	}
+
+	// 设置下一个游标
+	if len(collects) > 0 {
+		nextCursor = strconv.FormatInt(collects[len(collects)-1].CreateDate.Unix(), 10)
+	}
+
+	// 返回结果
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"success": true,
+		"msg":     "成功",
+		"data": gin.H{
+			"notes":      responseNotes,
+			"nextCursor": nextCursor,
 		},
 	})
 }

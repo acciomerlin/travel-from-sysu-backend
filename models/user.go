@@ -23,4 +23,5 @@ type User struct {
 	TrendCount    uint64     `gorm:"default:0" json:"trend_count"`                                  // 动态数量
 	FollowerCount uint64     `gorm:"default:0" json:"follower_count"`                               // 关注人数
 	FanCount      uint64     `gorm:"default:0" json:"fan_count"`                                    // 粉丝人数
+	NoteCount     uint64     `gorm:"default:0" json:"note_count"`                                   // 发布帖子的数量
 }

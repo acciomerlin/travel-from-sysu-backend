@@ -90,6 +90,14 @@ type GetUserInfoByIDResponse struct {
 	Error string `json:"error,omitempty"`
 }
 
+// GetNoteCountsByIDResponse 查找用户发帖数成功的返回信息
+type GetNoteCountsByIDResponse struct {
+	Status    string `json:"status"`
+	Code      int    `json:"code"`
+	NoteCount uint64 `json:"note_count"`
+	Error     string `json:"error,omitempty"`
+}
+
 // Register @ChangePwd 修改密码接口
 // @Register 用户注册接口
 // @Summary 用户注册接口
@@ -205,17 +213,6 @@ func Register(ctx *gin.Context) {
 }
 
 // Login 用户登录接口
-// @Summary 用户登录接口
-// @Description 用户登录，接收用户名和密码并生成访问令牌
-// @Tags 权限相关接口
-// @Accept application/json
-// @Produce application/json
-// @Param user body LoginRequest true "用户登录信息"
-// @Success 200 {object} LoginResponse "登录成功返回信息"
-// @Failure 400 {object} ErrorResponse "请求参数错误"
-// @Failure 401 {object} ErrorResponse "用户名或密码错误"
-// @Failure 500 {object} ErrorResponse "服务器内部错误"
-// @Router /login [post]
 func Login(ctx *gin.Context) {
 	var req LoginRequest
 
@@ -271,17 +268,6 @@ func Login(ctx *gin.Context) {
 }
 
 // ChangePwd 修改密码接口
-// @Summary 修改密码接口
-// @Description 用户可以通过提供用户名、旧密码和新密码来修改密码
-// @Tags 权限相关接口
-// @Accept application/json
-// @Produce application/json
-// @Param data body ChangePwdRequest true "修改密码请求参数"
-// @Success 200 {object} ChangePwdResponse "密码修改成功响应信息"
-// @Failure 400 {object} ErrorResponse "请求参数错误"
-// @Failure 401 {object} ErrorResponse "用户不存在或旧密码错误"
-// @Failure 500 {object} ErrorResponse "服务器内部错误"
-// @Router /changePwd [post]
 func ChangePwd(ctx *gin.Context) {
 	var req ChangePwdRequest
 
@@ -346,17 +332,6 @@ func ChangePwd(ctx *gin.Context) {
 }
 
 // ChangeUserInfo 修改用户信息接口
-// @Summary 修改用户名接口
-// @Description 用户可以通过提供旧用户名和新用户名来修改用户名
-// @Tags 用户相关接口
-// @Accept application/json
-// @Produce application/json
-// @Param data body ChangeNameRequest true "修改用户名请求参数"
-// @Success 200 {object} ChangeNameResponse "用户名修改成功响应信息"
-// @Failure 400 {object} ErrorResponse "请求参数错误"
-// @Failure 401 {object} ErrorResponse "用户不存在"
-// @Failure 500 {object} ErrorResponse "服务器内部错误"
-// @Router /changeName [post]
 func ChangeUserInfo(ctx *gin.Context) {
 	var req ChangeUserInfoRequest
 
@@ -541,5 +516,37 @@ func GetAvatar(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "获取头像成功",
 		"avatar":  user.Avatar,
+	})
+}
+
+func GetNoteCountsByID(ctx *gin.Context) {
+	// 从查询字符串中获取参数
+	id := ctx.DefaultQuery("id", "")
+	if id == "" {
+		ctx.JSON(http.StatusBadRequest, ErrorResponse{
+			Status: "失败",
+			Code:   400,
+			Error:  "缺少id参数",
+		})
+		return
+	}
+
+	// 查找用户
+	var user models.User
+	if err := global.Db.Where("user_id = ?", id).First(&user).Error; err != nil {
+		// 如果没有找到对应的用户
+		ctx.JSON(http.StatusNotFound, ErrorResponse{
+			Status: "失败",
+			Code:   404,
+			Error:  "用户未找到",
+		})
+		return
+	}
+
+	// 成功响应
+	ctx.JSON(http.StatusOK, GetNoteCountsByIDResponse{
+		Status:    "成功",
+		Code:      200,
+		NoteCount: user.NoteCount,
 	})
 }
