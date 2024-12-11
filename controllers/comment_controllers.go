@@ -8,22 +8,6 @@ import (
 	"travel-from-sysu-backend/models"
 )
 
-// GetNotesByCreatorIDResponse 获取笔记响应结构
-type GetNotesByCreatorIDResponse struct {
-	Status string        `json:"status"`
-	Code   int           `json:"code"`
-	Data   []models.Note `json:"data,omitempty"`
-	Error  string        `json:"error,omitempty"`
-}
-
-// GetNoteResponse 获取笔记的响应结构
-type GetNoteResponse struct {
-	Status string       `json:"status"`          // 响应状态
-	Code   int          `json:"code"`            // 响应代码
-	Note   *models.Note `json:"note,omitempty"`  // 笔记数据
-	Error  string       `json:"error,omitempty"` // 错误信息
-}
-
 // GetCommentRequest 获取评论的请求参数
 type GetCommentRequest struct {
 	CommentId string `json:"comment_id" binding:"required"` // 要获取的评论 ID
@@ -330,100 +314,5 @@ func GetSecondLevelCommentsByParentId(ctx *gin.Context) {
 		Status:   "成功",
 		Code:     200,
 		Comments: comments,
-	})
-}
-
-// GetNoteByID 根据笔记 ID 获取笔记信息
-// @Summary 根据笔记 ID 获取笔记
-// @Description 根据笔记 ID 获取笔记详细信息
-// @Tags 笔记相关接口
-// @Accept application/json
-// @Produce application/json
-// @Param note_id path uint true "笔记 ID"
-// @Success 200 {object} GetNoteResponse "笔记获取成功响应信息"
-// @Failure 400 {object} GetNoteResponse "请求参数错误"
-// @Failure 404 {object} GetNoteResponse "笔记不存在"
-// @Router /getNote/{note_id} [get]
-func GetNoteByID(ctx *gin.Context) {
-	// 从路径参数获取 note_id
-	noteID := ctx.Param("note_id")
-	if noteID == "" {
-		ctx.JSON(http.StatusBadRequest, GetNoteResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  "笔记id不得为空",
-		})
-		return
-	}
-
-	// 查询数据库中是否存在该笔记
-	var note models.Note
-	if err := global.Db.First(&note, "note_id = ?", noteID).Error; err != nil {
-		ctx.JSON(http.StatusNotFound, GetNoteResponse{
-			Status: "失败",
-			Code:   404,
-			Error:  "笔记不存在",
-		})
-		return
-	}
-
-	// 返回笔记数据
-	ctx.JSON(http.StatusOK, GetNoteResponse{
-		Status: "成功",
-		Code:   200,
-		Note:   &note,
-	})
-}
-
-// GetNotesByCreatorID 根据创建者 ID 获取笔记
-// @Summary 根据创建者 ID 获取笔记
-// @Description 根据创建者 ID 获取该用户创建的所有笔记
-// @Tags 笔记相关接口
-// @Accept application/json
-// @Produce application/json
-// @Param creator_id query string true "创建者 ID"
-// @Success 200 {object} GetNotesByCreatorIDResponse "成功返回笔记数组"
-// @Failure 400 {object} GetNotesByCreatorIDResponse "请求参数错误"
-// @Failure 404 {object} GetNotesByCreatorIDResponse "未找到相关笔记"
-// @Failure 500 {object} GetNotesByCreatorIDResponse "服务器内部错误"
-// @Router /api/note/getNotesByCreatorId [get]
-func GetNotesByCreatorID(ctx *gin.Context) {
-	// 获取创建者 ID
-	creatorID := ctx.Query("creator_id")
-	if creatorID == "" {
-		ctx.JSON(http.StatusBadRequest, GetNotesByCreatorIDResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  "创建者 ID 不能为空",
-		})
-		return
-	}
-
-	// 查询数据库中的笔记
-	var notes []models.Note
-	if err := global.Db.Where("note_creator_id = ?", creatorID).Find(&notes).Error; err != nil {
-		ctx.JSON(http.StatusInternalServerError, GetNotesByCreatorIDResponse{
-			Status: "失败",
-			Code:   500,
-			Error:  "查询笔记失败",
-		})
-		return
-	}
-
-	// 检查是否有笔记
-	if len(notes) == 0 {
-		ctx.JSON(http.StatusNotFound, GetNotesByCreatorIDResponse{
-			Status: "失败",
-			Code:   404,
-			Error:  "未找到相关笔记",
-		})
-		return
-	}
-
-	// 成功响应：返回笔记列表
-	ctx.JSON(http.StatusOK, GetNotesByCreatorIDResponse{
-		Status: "成功",
-		Code:   200,
-		Data:   notes,
 	})
 }

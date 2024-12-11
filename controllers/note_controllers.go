@@ -1,15 +1,59 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 	"travel-from-sysu-backend/global"
 	"travel-from-sysu-backend/models"
+	"travel-from-sysu-backend/oss"
 )
+
+type NewNote struct {
+	NoteID         uint     `gorm:"primaryKey;autoIncrement;autoIncrementStart:100001" json:"note_id"` // 主键 ID
+	NoteTitle      string   `json:"note_title"`                                                        // 笔记标题
+	NoteContent    string   `json:"note_content"`                                                      // 笔记内容
+	ViewCount      int      `json:"view_count"`                                                        // 浏览计数
+	NoteTagList    string   `json:"note_tag_list"`                                                     // 笔记标签列表（字符串类型）
+	NoteType       string   `json:"note_type"`
+	NoteURLS       []string `json:"note_urls"`
+	NoteCreatorID  uint     `gorm:"not null;index" json:"note_creator_id"` // 创建者 ID（外键）
+	NoteUpdateTime int64    `json:"note_update_time"`                      // 笔记更新时间 (Unix 时间戳)
+	LikeCounts     int      `json:"like_counts"`
+	CollectCounts  int      `json:"collect_counts"`
+}
+
+// GetNotesByCreatorIDResponse 获取笔记响应结构
+type GetNotesByCreatorIDResponse struct {
+	Status     string    `json:"status"`
+	Code       int       `json:"code"`
+	Notes      []NewNote `json:"notes,omitempty"`
+	NextCursor string    `json:"next_cursor"`
+	Error      string    `json:"error,omitempty"`
+}
+
+// GetNoteResponse 获取笔记的响应结构
+type GetNoteResponse struct {
+	Status         string   `json:"status"`                                                            // 响应状态
+	Code           int      `json:"code"`                                                              // 响应代码
+	NoteID         uint     `gorm:"primaryKey;autoIncrement;autoIncrementStart:100001" json:"note_id"` // 主键 ID
+	NoteTitle      string   `json:"note_title"`                                                        // 笔记标题
+	NoteContent    string   `json:"note_content"`                                                      // 笔记内容
+	ViewCount      int      `json:"view_count"`                                                        // 浏览计数
+	NoteTagList    string   `json:"note_tag_list"`                                                     // 笔记标签列表（字符串类型）
+	NoteType       string   `json:"note_type"`                                                         // 笔记类型 	// 笔记相关 URL
+	NoteCreatorID  uint     `gorm:"not null;index" json:"note_creator_id"`                             // 创建者 ID（外键）
+	NoteUpdateTime int64    `json:"note_update_time"`                                                  // 笔记更新时间 (Unix 时间戳)
+	LikeCounts     int      `json:"like_counts"`
+	CollectCounts  int      `json:"collect_counts"`
+	Error          string   `json:"error,omitempty"` // 错误信息
+	NoteURLS       []string `json:"note_urls"`
+}
 
 // UpdateNoteRequest 更新笔记的请求参数
 type UpdateNoteRequest struct {
@@ -44,6 +88,100 @@ type PublishNoteResponse struct {
 	Status string `json:"status"`
 	Code   int    `json:"code"`
 	Error  string `json:"error,omitempty"`
+	NID    uint   `json:"nid"`
+}
+
+func PublishNotePic(ctx *gin.Context) {
+
+	// 获取用户ID
+	nid := ctx.PostForm("nid")
+	if nid == "" {
+		ctx.JSON(http.StatusBadRequest, ErrorResponse{
+			Status: "失败",
+			Code:   400,
+			Error:  "缺少用户id",
+		})
+		return
+	}
+
+	// 处理文件
+	files := ctx.Request.MultipartForm.File["files"] // "files" 是前端 form 中的 name 属性
+
+	if files == nil {
+		ctx.JSON(http.StatusBadRequest, ErrorResponse{
+			Status: "失败",
+			Code:   400,
+			Error:  "没有上传文件，或者请求格式不正确",
+		})
+		return
+	}
+
+	// 用于保存所有上传后图片的 URL
+	var uploadedURLs []string
+
+	// 循环处理每个文件
+	for _, file := range files {
+		// 校验文件类型
+		ext := filepath.Ext(file.Filename)
+		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
+			ctx.JSON(http.StatusBadRequest, ErrorResponse{
+				Status: "失败",
+				Code:   400,
+				Error:  "不支持的文件类型",
+			})
+			return
+		}
+		// 将文件上传到阿里云 OSS
+		filePath, err := oss.UploadFileToOSS(file)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, ErrorResponse{
+				Status: "失败",
+				Code:   400,
+				Error:  "文件上传失败",
+			})
+			return
+		}
+
+		// 添加上传成功的文件 URL 到数组
+		uploadedURLs = append(uploadedURLs, filePath)
+	}
+
+	// 将上传的 URL 数组序列化为 JSON 字符串
+	uploadedURLsJSON, err := json.Marshal(uploadedURLs)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, ErrorResponse{
+			Status: "失败",
+			Code:   400,
+			Error:  "json序列化失败",
+		})
+		return
+	}
+
+	var note models.Note
+	if err := global.Db.First(&note, nid).Error; err != nil {
+		ctx.JSON(http.StatusBadRequest, ErrorResponse{
+			Status: "失败",
+			Code:   400,
+			Error:  "未找到笔记",
+		})
+		return
+	}
+
+	note.NoteURLs = string(uploadedURLsJSON)
+	if err := global.Db.Save(&note).Error; err != nil {
+		ctx.JSON(http.StatusBadRequest, ErrorResponse{
+			Status: "失败",
+			Code:   400,
+			Error:  "数据添加失败",
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "成功",
+		"Code":   200,
+	})
+
 }
 
 // DeleteNoteRequest 删除笔记请求参数
@@ -130,6 +268,7 @@ func PublishNote(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, PublishNoteResponse{
 		Status: "笔记发布成功",
 		Code:   200,
+		NID:    note.NoteID,
 	})
 }
 
@@ -430,6 +569,275 @@ func GetFoNotes(ctx *gin.Context) {
 			"collect_counts":   note.CollectCounts,
 			"note_creator_id":  note.NoteCreatorID,
 			"note_update_time": note.NoteUpdateTime, // 时间戳直接返回，前端要解析！
+		})
+	}
+
+	// 设置下一个游标
+	if len(notes) > 0 {
+		nextCursor = strconv.FormatInt(notes[len(notes)-1].NoteUpdateTime, 10)
+	}
+
+	// 返回结果
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"success": true,
+		"msg":     "成功",
+		"data": gin.H{
+			"notes":      responseNotes,
+			"nextCursor": nextCursor, // 下次分页使用的游标
+		},
+	})
+}
+
+// GetNoteByID 根据笔记 ID 获取笔记信息
+// @Summary 根据笔记 ID 获取笔记
+// @Description 根据笔记 ID 获取笔记详细信息
+// @Tags 笔记相关接口
+// @Accept application/json
+// @Produce application/json
+// @Param note_id path uint true "笔记 ID"
+// @Success 200 {object} GetNoteResponse "笔记获取成功响应信息"
+// @Failure 400 {object} GetNoteResponse "请求参数错误"
+// @Failure 404 {object} GetNoteResponse "笔记不存在"
+// @Router /getNote/{note_id} [get]
+func GetNoteByID(ctx *gin.Context) {
+	// 从路径参数获取 note_id
+	noteID := ctx.Query("note_id")
+	if noteID == "" {
+		ctx.JSON(http.StatusBadRequest, GetNoteResponse{
+			Status: "失败",
+			Code:   400,
+			Error:  "笔记id不得为空",
+		})
+		return
+	}
+
+	// 查询数据库中是否存在该笔记
+	var note models.Note
+	if err := global.Db.First(&note, "note_id = ?", noteID).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, GetNoteResponse{
+			Status: "失败",
+			Code:   404,
+			Error:  "笔记不存在",
+		})
+		return
+	}
+	// 假设 noteURLs 是存储 JSON 字符串的字段
+	var noteURLs []string
+	if err := json.Unmarshal([]byte(note.NoteURLs), &noteURLs); err != nil {
+		ctx.JSON(http.StatusInternalServerError, GetNoteResponse{
+			Status: "失败",
+			Code:   500,
+			Error:  "解析 noteURLs 失败",
+		})
+		return
+	}
+	// 返回笔记数据
+	ctx.JSON(http.StatusOK, GetNoteResponse{
+		Status:         "成功",
+		Code:           200,
+		NoteID:         note.NoteID,
+		NoteTitle:      note.NoteTitle,
+		NoteContent:    note.NoteContent,
+		ViewCount:      note.ViewCount,
+		NoteTagList:    note.NoteTagList,
+		NoteType:       note.NoteType,
+		NoteCreatorID:  note.NoteCreatorID,
+		NoteUpdateTime: note.NoteUpdateTime,
+		LikeCounts:     note.LikeCounts,
+		CollectCounts:  note.CollectCounts,
+		NoteURLS:       noteURLs,
+	})
+}
+
+// GetNotesByCreatorID 根据创建者 ID 获取笔记
+// @Summary 根据创建者 ID 获取笔记
+// @Description 根据创建者 ID 获取该用户创建的所有笔记
+// @Tags 笔记相关接口
+// @Accept application/json
+// @Produce application/json
+// @Param creator_id query string true "创建者 ID"
+// @Success 200 {object} GetNotesByCreatorIDResponse "成功返回笔记数组"
+// @Failure 400 {object} GetNotesByCreatorIDResponse "请求参数错误"
+// @Failure 404 {object} GetNotesByCreatorIDResponse "未找到相关笔记"
+// @Failure 500 {object} GetNotesByCreatorIDResponse "服务器内部错误"
+// @Router /api/note/getNotesByCreatorId [get]
+func GetNotesByCreatorID(ctx *gin.Context) {
+	// 获取请求参数
+	creatorId := ctx.Query("creator_id")
+	num := ctx.Query("num")
+	cursor := ctx.Query("cursor") // 游标，用于分页（时间戳）
+
+	// 参数校验
+	if creatorId == "" || num == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"success": false,
+			"msg":     "参数缺失",
+		})
+		return
+	}
+
+	// 默认最大条数
+	limit := 30
+	if n, err := strconv.Atoi(num); err == nil && n > 0 && n < 30 {
+		limit = n
+	}
+
+	// 查询用户关注的用户 ID
+	var followers []models.Follower
+	if err := global.Db.Where("uid = ?", creatorId).Find(&followers).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"success": false,
+			"msg":     "查询关注信息失败",
+		})
+		return
+	}
+
+	// 获取关注的用户 ID 列表
+	var followedUserIDs []uint
+	for _, follower := range followers {
+		followedUserIDs = append(followedUserIDs, follower.Fid)
+	}
+
+	// 构造查询条件
+	query := global.Db.Where("note_type = ?", creatorId)
+	if cursor != "" {
+		// 游标为时间戳（Unix 时间）
+		if timestamp, err := strconv.ParseInt(cursor, 10, 64); err == nil {
+			query = query.Where("note_update_time < ?", timestamp) // 返回最近更新的帖子，所以 <
+		} else {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"code":    400,
+				"success": false,
+				"msg":     "无效的游标参数",
+			})
+			return
+		}
+	}
+
+	// 查询帖子数据
+	var notes []models.Note
+	if err := query.Order("note_update_time DESC").Limit(limit).Find(&notes).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"success": false,
+			"msg":     "查询笔记失败",
+		})
+		return
+	}
+
+	// 构造返回结果
+	var responseNotes []gin.H
+	var nextCursor string
+	for _, note := range notes {
+		responseNotes = append(responseNotes, gin.H{
+			"note_id":          note.NoteID,
+			"note_title":       note.NoteTitle,
+			"note_content":     note.NoteContent,
+			"like_counts":      note.LikeCounts,
+			"collect_counts":   note.CollectCounts,
+			"note_creator_id":  note.NoteCreatorID,
+			"note_update_time": note.NoteUpdateTime,
+		})
+	}
+
+	// 设置下一个游标
+	if len(notes) > 0 {
+		nextCursor = strconv.FormatInt(notes[len(notes)-1].NoteUpdateTime, 10)
+	}
+
+	// 返回结果
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"success": true,
+		"msg":     "成功",
+		"data": gin.H{
+			"notes":      responseNotes,
+			"nextCursor": nextCursor, // 下次分页使用的游标
+		},
+	})
+}
+
+func GetNotesByType(ctx *gin.Context) {
+	// 获取请求参数
+	noteType := ctx.Query("note_type")
+	num := ctx.Query("num")
+	cursor := ctx.Query("cursor") // 游标，用于分页（时间戳）
+
+	// 参数校验
+	if noteType == "" || num == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"success": false,
+			"msg":     "参数缺失",
+		})
+		return
+	}
+
+	// 默认最大条数
+	limit := 30
+	if n, err := strconv.Atoi(num); err == nil && n > 0 && n < 30 {
+		limit = n
+	}
+
+	// 查询用户关注的用户 ID
+	var followers []models.Follower
+	if err := global.Db.Where("uid = ?", noteType).Find(&followers).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"success": false,
+			"msg":     "查询关注信息失败",
+		})
+		return
+	}
+
+	// 获取关注的用户 ID 列表
+	var followedUserIDs []uint
+	for _, follower := range followers {
+		followedUserIDs = append(followedUserIDs, follower.Fid)
+	}
+
+	// 构造查询条件
+	query := global.Db.Where("note_type = ?", noteType)
+	if cursor != "" {
+		// 游标为时间戳（Unix 时间）
+		if timestamp, err := strconv.ParseInt(cursor, 10, 64); err == nil {
+			query = query.Where("note_update_time < ?", timestamp) // 返回最近更新的帖子，所以 <
+		} else {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"code":    400,
+				"success": false,
+				"msg":     "无效的游标参数",
+			})
+			return
+		}
+	}
+
+	// 查询帖子数据
+	var notes []models.Note
+	if err := query.Order("note_update_time DESC").Limit(limit).Find(&notes).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"success": false,
+			"msg":     "查询笔记失败",
+		})
+		return
+	}
+
+	// 构造返回结果
+	var responseNotes []gin.H
+	var nextCursor string
+	for _, note := range notes {
+		responseNotes = append(responseNotes, gin.H{
+			"note_id":          note.NoteID,
+			"note_title":       note.NoteTitle,
+			"note_content":     note.NoteContent,
+			"like_counts":      note.LikeCounts,
+			"collect_counts":   note.CollectCounts,
+			"note_creator_id":  note.NoteCreatorID,
+			"note_update_time": note.NoteUpdateTime,
 		})
 	}
 

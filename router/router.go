@@ -17,7 +17,7 @@ func SetupRouter() *gin.Engine {
 		auth.POST("/login", controllers.Login)
 		auth.POST("/changePwd", controllers.ChangePwd)
 		auth.POST("/changeUserInfo", controllers.ChangeUserInfo)
-		auth.GET("/getNameByID", controllers.GetNameByID)
+		auth.GET("/getUserInfoByID", controllers.GetUserInfoByID)
 		auth.POST("/uploadAvatar", controllers.UploadAvatar)
 		auth.GET("/getAvatar", controllers.GetAvatar)
 	}
@@ -29,10 +29,12 @@ func SetupRouter() *gin.Engine {
 		note.GET("/getNoteById", controllers.GetNoteByID)
 		note.GET("/getNotesByCreatorId", controllers.GetNotesByCreatorID)
 		note.GET("/getUserFoNotes", controllers.GetFoNotes)
+		note.GET("/getNotesByType", controllers.GetNotesByType)
 		note.POST("/like", controllers.Like)
 		note.POST("/dislike", controllers.Dislike)
 		note.POST("/collect", controllers.Collect)
 		note.POST("/uncollect", controllers.Uncollect)
+		note.POST("/publishNotePic", controllers.PublishNotePic)
 	}
 	user := r.Group("/api/user")
 	{

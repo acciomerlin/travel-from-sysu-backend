@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"time"
 	"travel-from-sysu-backend/global"
 	"travel-from-sysu-backend/models"
 	"travel-from-sysu-backend/oss"
@@ -73,12 +74,20 @@ type ChangeUserInfoResponse struct {
 	Error  string `json:"error"`
 }
 
-// GetNameByIDResponse 查找用户名成功的返回信息
-type GetNameByIDResponse struct {
-	Status   string `json:"status"`
-	Code     int    `json:"code"`
-	Username string `json:"username"`
-	Error    string `json:"error,omitempty"`
+// GetUserInfoByIDResponse 查找用户名成功的返回信息
+type GetUserInfoByIDResponse struct {
+	Status        string    `json:"status"`
+	Code          int       `json:"code"`
+	Username      string    `json:"username"`
+	CreatedAt     time.Time `json:"created_at"`
+	Description   string    `json:"description"`
+	Gender        *int      `json:"gender"`
+	Birthday      string    `json:"birthday"`
+	TrendCount    uint64    `json:"trand_count"`
+	FollowerCount uint64    `json:"follower_count"`
+	FanCount      uint64    `json:"fan_count"`
+
+	Error string `json:"error,omitempty"`
 }
 
 // Register @ChangePwd 修改密码接口
@@ -393,7 +402,7 @@ func ChangeUserInfo(ctx *gin.Context) {
 	})
 }
 
-// GetNameByID 根据用户ID获取用户名接口
+// GetGetUserInfoByID 根据用户ID获取用户信息接口
 // @Summary 根据用户ID获取用户名接口
 // @Description 根据提供的用户ID查找对应的用户名
 // @Tags 用户相关接口
@@ -404,7 +413,7 @@ func ChangeUserInfo(ctx *gin.Context) {
 // @Failure 400 {object} ErrorResponse "请求参数错误"
 // @Failure 404 {object} ErrorResponse "用户未找到"
 // @Router /getNameByID [get]
-func GetNameByID(ctx *gin.Context) {
+func GetUserInfoByID(ctx *gin.Context) {
 	// 从查询字符串中获取参数
 	id := ctx.DefaultQuery("id", "")
 	if id == "" {
@@ -429,10 +438,17 @@ func GetNameByID(ctx *gin.Context) {
 	}
 
 	// 成功响应
-	ctx.JSON(http.StatusOK, GetNameByIDResponse{
-		Status:   "成功",
-		Code:     200,
-		Username: user.Username,
+	ctx.JSON(http.StatusOK, GetUserInfoByIDResponse{
+		Status:        "成功",
+		Code:          200,
+		Username:      user.Username,
+		CreatedAt:     user.CreatedAt,
+		Description:   user.Description,
+		Gender:        user.Gender,
+		Birthday:      user.Birthday,
+		TrendCount:    user.TrendCount,
+		FollowerCount: user.FollowerCount,
+		FanCount:      user.FanCount,
 	})
 }
 
