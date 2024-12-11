@@ -29,7 +29,7 @@ func SetupRouter() *gin.Engine {
 		note.GET("/getNoteById", controllers.GetNoteByID)
 		note.GET("/getNotesByCreatorId", controllers.GetNotesByCreatorID)
 		note.GET("/getUserFoNotes", controllers.GetFoNotes)
-		note.GET("/getNotesByType", controllers.GetNotesByType)
+		note.GET("/getNotesByType", controllers.GetNotesByUpdateTime)
 		note.GET("/getUserLikeNotes", controllers.GetLikedNotes)
 		note.GET("/getUserCollectNotes", controllers.GetCollectedNotes)
 		note.POST("/like", controllers.Like)
@@ -37,6 +37,8 @@ func SetupRouter() *gin.Engine {
 		note.POST("/collect", controllers.Collect)
 		note.POST("/uncollect", controllers.Uncollect)
 		note.POST("/publishNotePic", controllers.PublishNotePic)
+		note.GET("/getNotesByLikes", controllers.GetNotesByLikes)
+		note.GET("/getNotesByCollects", controllers.GetNotesByCollects)
 	}
 	user := r.Group("/api/user")
 	{
@@ -54,6 +56,7 @@ func SetupRouter() *gin.Engine {
 		comment.GET("/getCommentById", controllers.GetCommentById)
 		comment.GET("/getFirstLevelCommentsByNoteId", controllers.GetFirstLevelCommentsByNoteId)
 		comment.GET("/getSecondLevelCommentsByParentId", controllers.GetSecondLevelCommentsByParentId)
+
 	}
 	return r
 }

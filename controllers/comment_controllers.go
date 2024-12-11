@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	"net/http"
 	"time"
 	"travel-from-sysu-backend/global"
@@ -99,8 +100,22 @@ func PublishComment(ctx *gin.Context) {
 		CreatedAt: time.Now(),
 	}
 
-	// 保存到数据库
-	if err := global.Db.Create(&comment).Error; err != nil {
+	// 开启事务
+	tx := global.Db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			ctx.JSON(http.StatusInternalServerError, PublishCommentResponse{
+				Status: "失败",
+				Code:   500,
+				Error:  "事务失败",
+			})
+		}
+	}()
+
+	// 保存评论到数据库
+	if err := tx.Create(&comment).Error; err != nil {
+		tx.Rollback()
 		ctx.JSON(http.StatusInternalServerError, PublishCommentResponse{
 			Status: "失败",
 			Code:   500,
@@ -108,6 +123,23 @@ func PublishComment(ctx *gin.Context) {
 		})
 		return
 	}
+
+	// 更新 note 表的 comment_count
+	if err := tx.Model(&models.Note{}).
+		Where("id = ?", req.NoteId).
+		UpdateColumn("comment_count", gorm.Expr("comment_count + ?", 1)).
+		Error; err != nil {
+		tx.Rollback()
+		ctx.JSON(http.StatusInternalServerError, PublishCommentResponse{
+			Status: "失败",
+			Code:   500,
+			Error:  "更新评论计数失败",
+		})
+		return
+	}
+
+	// 提交事务
+	tx.Commit()
 
 	// 成功响应
 	ctx.JSON(http.StatusOK, PublishCommentResponse{
@@ -142,8 +174,16 @@ func DeleteComment(ctx *gin.Context) {
 	}
 
 	// 尝试从数据库中删除评论
-	result := global.Db.Delete(&models.Comments{}, "comment_id = ?", req.CommentId)
-	if result.Error != nil {
+	var comment models.Comments
+	if err := global.Db.Where("comment_id = ?", req.CommentId).First(&comment).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			ctx.JSON(http.StatusNotFound, DeleteCommentResponse{
+				Status: "失败",
+				Code:   404,
+				Error:  "评论不存在或已被删除",
+			})
+			return
+		}
 		ctx.JSON(http.StatusInternalServerError, DeleteCommentResponse{
 			Status: "失败",
 			Code:   500,
@@ -152,12 +192,24 @@ func DeleteComment(ctx *gin.Context) {
 		return
 	}
 
-	// 检查是否有记录被删除
-	if result.RowsAffected == 0 {
-		ctx.JSON(http.StatusNotFound, DeleteCommentResponse{
+	// 删除评论
+	if err := global.Db.Delete(&comment).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, DeleteCommentResponse{
 			Status: "失败",
-			Code:   404,
-			Error:  "评论不存在或已被删除",
+			Code:   500,
+			Error:  "删除评论失败",
+		})
+		return
+	}
+
+	// 更新 note 表中的 comment_count
+	if err := global.Db.Model(&models.Note{}).
+		Where("note_id = ?", comment.NoteId).
+		Update("comment_count", gorm.Expr("comment_count - 1")).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, DeleteCommentResponse{
+			Status: "失败",
+			Code:   500,
+			Error:  "更新评论计数失败",
 		})
 		return
 	}

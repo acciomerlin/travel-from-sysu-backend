@@ -14,4 +14,5 @@ type Note struct {
 	NoteUpdateTime int64  `json:"note_update_time"` // 笔记更新时间 (Unix 时间戳)
 	LikeCounts     int    `json:"like_counts"`
 	CollectCounts  int    `json:"collect_counts"`
+	CommentCounts  int    `json:"comment_counts"`
 }
