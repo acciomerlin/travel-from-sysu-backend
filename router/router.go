@@ -29,7 +29,7 @@ func SetupRouter() *gin.Engine {
 		note.GET("/getNoteById", controllers.GetNoteByID)
 		note.GET("/getNotesByCreatorId", controllers.GetNotesByCreatorID)
 		note.GET("/getUserFoNotes", controllers.GetFoNotes)
-		note.GET("/getNotesByType", controllers.GetNotesByUpdateTime)
+		note.GET("/getNotesByUpdateTime", controllers.GetNotesByUpdateTime)
 		note.GET("/getUserLikeNotes", controllers.GetLikedNotes)
 		note.GET("/getUserCollectNotes", controllers.GetCollectedNotes)
 		note.POST("/like", controllers.Like)
