@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"log"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -92,99 +93,6 @@ type PublishNoteResponse struct {
 	NID    uint   `json:"nid"`
 }
 
-func PublishNotePic(ctx *gin.Context) {
-
-	// 获取用户ID
-	nid := ctx.PostForm("nid")
-	if nid == "" {
-		ctx.JSON(http.StatusBadRequest, ErrorResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  "缺少用户id",
-		})
-		return
-	}
-
-	// 处理文件
-	files := ctx.Request.MultipartForm.File["files"] // "files" 是前端 form 中的 name 属性
-
-	if files == nil {
-		ctx.JSON(http.StatusBadRequest, ErrorResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  "没有上传文件，或者请求格式不正确",
-		})
-		return
-	}
-
-	// 用于保存所有上传后图片的 URL
-	var uploadedURLs []string
-
-	// 循环处理每个文件
-	for _, file := range files {
-		// 校验文件类型
-		ext := filepath.Ext(file.Filename)
-		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
-			ctx.JSON(http.StatusBadRequest, ErrorResponse{
-				Status: "失败",
-				Code:   400,
-				Error:  "不支持的文件类型",
-			})
-			return
-		}
-		// 将文件上传到阿里云 OSS
-		filePath, err := oss.UploadFileToOSS(file)
-		if err != nil {
-			ctx.JSON(http.StatusBadRequest, ErrorResponse{
-				Status: "失败",
-				Code:   400,
-				Error:  "文件上传失败",
-			})
-			return
-		}
-
-		// 添加上传成功的文件 URL 到数组
-		uploadedURLs = append(uploadedURLs, filePath)
-	}
-
-	// 将上传的 URL 数组序列化为 JSON 字符串
-	uploadedURLsJSON, err := json.Marshal(uploadedURLs)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, ErrorResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  "json序列化失败",
-		})
-		return
-	}
-
-	var note models.Note
-	if err := global.Db.First(&note, nid).Error; err != nil {
-		ctx.JSON(http.StatusBadRequest, ErrorResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  "未找到笔记",
-		})
-		return
-	}
-
-	note.NoteURLs = string(uploadedURLsJSON)
-	if err := global.Db.Save(&note).Error; err != nil {
-		ctx.JSON(http.StatusBadRequest, ErrorResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  "数据添加失败",
-		})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{
-		"status": "成功",
-		"Code":   200,
-	})
-
-}
-
 // DeleteNoteRequest 删除笔记请求参数
 type DeleteNoteRequest struct {
 	NoteID uint `json:"note_id" binding:"required"` // 笔记的唯一标识符
@@ -197,91 +105,182 @@ type DeleteNoteResponse struct {
 	Error  string `json:"error,omitempty"`
 }
 
-// PublishNote 发布笔记
-func PublishNote(ctx *gin.Context) {
-	var req PublishNoteRequest
+// cleanupUploadedFiles 删除已上传的文件
+func cleanupUploadedFiles(urls []string) {
+	for _, url := range urls {
+		if err := oss.DeleteFileFromAliyunOss(url); err != nil {
+			log.Printf("删除文件失败: %v", err)
+		}
+	}
+}
 
-	// 绑定 JSON 数据到 PublishNoteRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, ErrorResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  err.Error(),
+// PublishNoteWithPics 发布笔记并上传图片接口
+func PublishNoteWithPics(ctx *gin.Context) {
+	// 接收笔记信息
+	noteTitle := ctx.PostForm("note_title")
+	noteContent := ctx.PostForm("note_content")
+	noteTagList := ctx.PostForm("note_tag_list")
+	noteType := ctx.PostForm("note_type")
+	noteCreatorID := ctx.PostForm("note_creator_id")
+
+	if noteTitle == "" || noteContent == "" || noteCreatorID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "缺少必要参数",
 		})
 		return
 	}
 
-	// 创建 Note 实例
+	creatorID, err := strconv.Atoi(noteCreatorID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "创建者ID格式错误",
+		})
+		return
+	}
+
+	// 检查用户是否存在
+	var user models.User
+	if err := global.Db.First(&user, "user_id = ?", creatorID).Error; err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "用户不存在",
+		})
+		return
+	}
+
+	// 处理文件
+	files := ctx.Request.MultipartForm.File["files"]
+	if files == nil {
+		ctx.JSON(http.StatusBadRequest, ErrorResponse{
+			Status: "失败",
+			Code:   400,
+			Error:  "没有上传文件，或者请求格式不正确",
+		})
+		return
+	}
+
+	var uploadedURLs []string
+
+	// 上传文件到 OSS
+	for _, file := range files {
+		ext := strings.ToLower(filepath.Ext(file.Filename))
+		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
+			// 删除已上传的文件
+			cleanupUploadedFiles(uploadedURLs)
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"status": "失败",
+				"code":   400,
+				"error":  "不支持的文件类型",
+			})
+			return
+		}
+
+		url, err := oss.UploadFileToAliyunOss(file, "note_pics")
+		if err != nil {
+			// 删除已上传的文件
+			cleanupUploadedFiles(uploadedURLs)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"status": "失败",
+				"code":   500,
+				"error":  "图片上传失败",
+			})
+			return
+		}
+		uploadedURLs = append(uploadedURLs, url)
+	}
+
+	// 转换 URL 为 JSON
+	noteURLsJSON, err := json.Marshal(uploadedURLs)
+	if err != nil {
+		// 删除已上传的文件
+		cleanupUploadedFiles(uploadedURLs)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "图片URL序列化失败",
+		})
+		return
+	}
+
+	// 创建 Note 记录
 	note := models.Note{
-		NoteTitle:      req.NoteTitle,
-		NoteContent:    req.NoteContent,
-		ViewCount:      req.NoteCount,
-		NoteTagList:    strings.Join(req.NoteTagList, ","), // 将数组转换为字符串存储
-		NoteType:       req.NoteType,
-		NoteURLs:       req.NoteURLs,
-		NoteCreatorID:  req.NoteCreatorID,
-		NoteUpdateTime: time.Now().Unix(), // 设置时间戳
+		NoteTitle:      noteTitle,
+		NoteContent:    noteContent,
+		ViewCount:      0,
+		NoteTagList:    noteTagList,
+		NoteType:       noteType,
+		NoteURLs:       string(noteURLsJSON),
+		NoteCreatorID:  uint(creatorID),
+		NoteUpdateTime: time.Now().Unix(),
 	}
 
 	// 保存 Note 到数据库
 	if err := global.Db.Create(&note).Error; err != nil {
-		ctx.JSON(http.StatusInternalServerError, ErrorResponse{
-			Status: "失败",
-			Code:   500,
-			Error:  "笔记发布失败：" + err.Error(),
+		// 删除已上传的文件
+		cleanupUploadedFiles(uploadedURLs)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "笔记保存失败",
 		})
 		return
 	}
 
 	// 更新用户的 NoteCount 字段
 	if err := global.Db.Model(&models.User{}).
-		Where("user_id = ?", req.NoteCreatorID).
+		Where("user_id = ?", creatorID).
 		Update("note_count", gorm.Expr("note_count + ?", 1)).Error; err != nil {
-		ctx.JSON(http.StatusInternalServerError, ErrorResponse{
-			Status: "失败",
-			Code:   500,
-			Error:  "更新用户 NoteCount 失败",
+		// 删除已上传的文件，并删除 Note 记录
+		cleanupUploadedFiles(uploadedURLs)
+		global.Db.Delete(&note)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "更新用户 NoteCount 失败",
 		})
 		return
 	}
 
 	// 处理 Tag 和 TagNoteRelation
-	for _, tagName := range req.NoteTagList {
+	tags := strings.Split(noteTagList, ",")
+	for _, tagName := range tags {
 		var tag models.Tag
-		// 检查 Tag 是否已存在
 		if err := global.Db.Where("t_name = ?", tagName).First(&tag).Error; err != nil {
-			// Tag 不存在，创建新的 Tag
 			tag = models.Tag{
-				ID:         strconv.FormatInt(time.Now().UnixNano(), 10), // 使用时间戳作为 Tag ID
+				ID:         strconv.FormatInt(time.Now().UnixNano(), 10),
 				TName:      tagName,
-				Creator:    strconv.Itoa(int(req.NoteCreatorID)),
+				Creator:    noteCreatorID,
 				CreateDate: time.Now(),
 				UpdateDate: time.Now(),
 				UseCount:   1,
 			}
 			global.Db.Create(&tag)
 		} else {
-			// Tag 存在，更新 UseCount 和 UpdateTime
 			tag.UseCount++
 			tag.UpdateDate = time.Now()
 			global.Db.Save(&tag)
 		}
 
-		// 为每个 Tag 创建对应的 TagNoteRelation 记录
-		tagNoteRelation := models.TagNoteRelation{
+		relation := models.TagNoteRelation{
 			NID:        note.NoteID,
 			TID:        tag.ID,
-			CreatorID:  req.NoteCreatorID,
+			CreatorID:  uint(creatorID),
 			CreateDate: time.Now(),
 		}
-		global.Db.Create(&tagNoteRelation)
+		global.Db.Create(&relation)
 	}
 
 	// 成功响应
-	ctx.JSON(http.StatusOK, PublishNoteResponse{
-		Status: "笔记发布成功",
-		Code:   200,
-		NID:    note.NoteID,
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "成功",
+		"code":   200,
+		"nid":    note.NoteID,
+		"urls":   uploadedURLs,
 	})
 }
 
@@ -387,6 +386,19 @@ func DeleteNote(ctx *gin.Context) {
 		return
 	}
 
+	// 最后再删除oss笔记文件，调用 cleanupUploadedFiles 删除文件
+	var uploadedURLs []string
+	if err := json.Unmarshal([]byte(note.NoteURLs), &uploadedURLs); err != nil {
+		log.Printf("解析 NoteURLs 失败: %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "解析 NoteURLs 失败",
+		})
+		return
+	}
+	cleanupUploadedFiles(uploadedURLs)
+
 	// 成功响应
 	ctx.JSON(http.StatusOK, DeleteNoteResponse{
 		Status: "笔记删除成功",
@@ -396,21 +408,26 @@ func DeleteNote(ctx *gin.Context) {
 
 // UpdateNote 更新笔记接口
 func UpdateNote(ctx *gin.Context) {
-	var req UpdateNoteRequest
+	// 获取请求参数
+	noteID := ctx.PostForm("note_id")
+	noteTitle := ctx.PostForm("note_title")
+	noteContent := ctx.PostForm("note_content")
+	noteTagList := ctx.PostForm("note_tag_list")
+	noteType := ctx.PostForm("note_type")
 
-	// 绑定 JSON 数据到 UpdateNoteRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, UpdateNoteResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  err.Error(),
+	// 检查必要参数
+	if noteID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "缺少必要的 Note ID 参数",
 		})
 		return
 	}
 
 	// 根据 NoteID 查找笔记
 	var note models.Note
-	if err := global.Db.First(&note, "note_id = ?", req.NoteID).Error; err != nil {
+	if err := global.Db.First(&note, "note_id = ?", noteID).Error; err != nil {
 		ctx.JSON(http.StatusNotFound, UpdateNoteResponse{
 			Status: "失败",
 			Code:   404,
@@ -420,7 +437,7 @@ func UpdateNote(ctx *gin.Context) {
 	}
 
 	// 更新 Tag 和 TagNoteRelation
-	tagList := strings.Split(req.NoteTagList, ",") // 新的 tag 列表
+	tagList := strings.Split(noteTagList, ",") // 新的 tag 列表
 
 	// 查找旧的 tag 列表（从数据库中获取 Note 的原始 tag 列表）
 	var oldTagList []string
@@ -494,37 +511,86 @@ func UpdateNote(ctx *gin.Context) {
 	}
 
 	// 更新笔记内容
-	if req.NoteTitle != "" {
-		note.NoteTitle = req.NoteTitle
+	if noteTitle != "" {
+		note.NoteTitle = noteTitle
 	}
-	if req.NoteContent != "" {
-		note.NoteContent = req.NoteContent
+	if noteContent != "" {
+		note.NoteContent = noteContent
 	}
-	if req.NoteTagList != "" {
-		note.NoteTagList = req.NoteTagList
+	if noteTagList != "" {
+		note.NoteTagList = noteTagList
 	}
-	if req.NoteType != "" {
-		note.NoteType = req.NoteType
+	if noteType != "" {
+		note.NoteType = noteType
 	}
-	if req.NoteURLs != "" {
-		note.NoteURLs = req.NoteURLs
-	}
-	note.NoteUpdateTime = time.Now().Unix() // 更新时间戳
 
-	// 保存更新到数据库
-	if err := global.Db.Save(&note).Error; err != nil {
+	// 存下旧的文件urls
+	var oldURLs []string
+	if err := json.Unmarshal([]byte(note.NoteURLs), &oldURLs); err != nil {
 		ctx.JSON(http.StatusInternalServerError, UpdateNoteResponse{
 			Status: "失败",
 			Code:   500,
-			Error:  "笔记更新失败",
+			Error:  "笔记更新失败:" + err.Error(),
 		})
 		return
 	}
 
-	// 成功响应
-	ctx.JSON(http.StatusOK, UpdateNoteResponse{
-		Status: "笔记更新成功",
-		Code:   200,
+	// 上传新文件
+	files := ctx.Request.MultipartForm.File["files"]
+	var newUploadedURLs []string
+	for _, file := range files {
+		ext := strings.ToLower(filepath.Ext(file.Filename))
+		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"status": "失败",
+				"code":   400,
+				"error":  "笔记更新文件不支持的文件类型",
+			})
+			return
+		}
+
+		url, err := oss.UploadFileToAliyunOss(file, "note_pics")
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"status": "失败",
+				"code":   500,
+				"error":  "笔记更新文件上传至oss失败",
+			})
+			return
+		}
+		newUploadedURLs = append(newUploadedURLs, url)
+	}
+
+	// 更新 NoteURLs
+	noteURLsJSON, err := json.Marshal(newUploadedURLs)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "URL 序列化失败",
+		})
+		return
+	}
+	note.NoteURLs = string(noteURLsJSON)
+
+	note.NoteUpdateTime = time.Now().Unix() // 更新时间戳
+
+	// 保存到数据库
+	if err := global.Db.Save(&note).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "笔记更新失败",
+		})
+		return
+	}
+
+	cleanupUploadedFiles(oldURLs) // 安心删除旧文件
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "成功",
+		"code":   200,
+		"urls":   newUploadedURLs,
 	})
 }
 
@@ -817,16 +883,6 @@ func GetCollectedNotes(ctx *gin.Context) {
 }
 
 // GetNoteByID 根据笔记 ID 获取笔记信息
-// @Summary 根据笔记 ID 获取笔记
-// @Description 根据笔记 ID 获取笔记详细信息
-// @Tags 笔记相关接口
-// @Accept application/json
-// @Produce application/json
-// @Param note_id path uint true "笔记 ID"
-// @Success 200 {object} GetNoteResponse "笔记获取成功响应信息"
-// @Failure 400 {object} GetNoteResponse "请求参数错误"
-// @Failure 404 {object} GetNoteResponse "笔记不存在"
-// @Router /getNote/{note_id} [get]
 func GetNoteByID(ctx *gin.Context) {
 	// 从路径参数获取 note_id
 	noteID := ctx.Query("note_id")
@@ -878,17 +934,6 @@ func GetNoteByID(ctx *gin.Context) {
 }
 
 // GetNotesByCreatorID 根据创建者 ID 获取笔记
-// @Summary 根据创建者 ID 获取笔记
-// @Description 根据创建者 ID 获取该用户创建的所有笔记
-// @Tags 笔记相关接口
-// @Accept application/json
-// @Produce application/json
-// @Param creator_id query string true "创建者 ID"
-// @Success 200 {object} GetNotesByCreatorIDResponse "成功返回笔记数组"
-// @Failure 400 {object} GetNotesByCreatorIDResponse "请求参数错误"
-// @Failure 404 {object} GetNotesByCreatorIDResponse "未找到相关笔记"
-// @Failure 500 {object} GetNotesByCreatorIDResponse "服务器内部错误"
-// @Router /api/note/getNotesByCreatorId [get]
 func GetNotesByCreatorID(ctx *gin.Context) {
 	// 获取请求参数
 	creatorId := ctx.Query("creator_id")
@@ -988,6 +1033,7 @@ func GetNotesByCreatorID(ctx *gin.Context) {
 	})
 }
 
+// GetNotesByUpdateTime 根据更新时间新旧获取笔记
 func GetNotesByUpdateTime(ctx *gin.Context) {
 	// 获取请求参数
 	noteType := ctx.Query("note_type")
@@ -1072,6 +1118,7 @@ func GetNotesByUpdateTime(ctx *gin.Context) {
 	})
 }
 
+// GetNotesByLikes 根据笔记获赞数多少获取笔记
 func GetNotesByLikes(ctx *gin.Context) {
 	// 获取请求参数
 	noteType := ctx.Query("note_type")
@@ -1156,6 +1203,7 @@ func GetNotesByLikes(ctx *gin.Context) {
 	})
 }
 
+// GetNotesByCollects 根据笔记收藏数多少获取笔记
 func GetNotesByCollects(ctx *gin.Context) {
 	// 获取请求参数
 	noteType := ctx.Query("note_type")
