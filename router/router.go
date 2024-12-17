@@ -24,8 +24,10 @@ func SetupRouter() *gin.Engine {
 	note := r.Group("/api/note")
 	{
 		note.POST("/publishNoteWithPics", controllers.PublishNoteWithPics)
+		note.POST("/updateNoteWithPics", controllers.UpdateNoteWithPics)
+		note.POST("/publishNoteWithVideo", controllers.PublishNoteWithVideo)
+		note.POST("/updateNoteWithVideo", controllers.UpdateNoteWithVideo)
 		note.POST("/deleteNote", controllers.DeleteNote)
-		note.POST("/updateNote", controllers.UpdateNote)
 		note.GET("/getNoteById", controllers.GetNoteByID)
 		note.GET("/getNotesByCreatorId", controllers.GetNotesByCreatorID)
 		note.GET("/getUserFoNotes", controllers.GetFoNotes)
