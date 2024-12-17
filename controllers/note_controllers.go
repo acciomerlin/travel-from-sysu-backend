@@ -17,17 +17,20 @@ import (
 )
 
 type NewNote struct {
-	NoteID         uint     `gorm:"primaryKey;autoIncrement;autoIncrementStart:100001" json:"note_id"` // 主键 ID
-	NoteTitle      string   `json:"note_title"`                                                        // 笔记标题
-	NoteContent    string   `json:"note_content"`                                                      // 笔记内容
-	ViewCount      int      `json:"view_count"`                                                        // 浏览计数
-	NoteTagList    string   `json:"note_tag_list"`                                                     // 笔记标签列表（字符串类型）
-	NoteType       string   `json:"note_type"`
-	NoteURLS       []string `json:"note_urls"`
-	NoteCreatorID  uint     `gorm:"not null;index" json:"note_creator_id"` // 创建者 ID（外键）
-	NoteUpdateTime int64    `json:"note_update_time"`                      // 笔记更新时间 (Unix 时间戳)
-	LikeCounts     int      `json:"like_counts"`
-	CollectCounts  int      `json:"collect_counts"`
+	NoteID           uint     `gorm:"primaryKey;autoIncrement;autoIncrementStart:100001" json:"note_id"` // 主键 ID
+	NoteTitle        string   `json:"note_title"`                                                        // 笔记标题
+	NoteContent      string   `json:"note_content"`                                                      // 笔记内容
+	ViewCount        int      `json:"view_count"`                                                        // 浏览计数
+	NoteTagList      string   `json:"note_tag_list"`                                                     // 笔记标签列表（字符串类型）
+	NoteType         string   `json:"note_type"`
+	NoteURLS         []string `json:"note_urls"`
+	NoteCreatorID    uint     `gorm:"not null;index" json:"note_creator_id"` // 创建者 ID（外键）
+	NoteUpdateTime   int64    `json:"note_update_time"`                      // 笔记更新时间 (Unix 时间戳)
+	LikeCounts       int      `json:"like_counts"`
+	CollectCounts    int      `json:"collect_counts"`
+	CommentCounts    int      `json:"comment_counts"`
+	IsFindingBuddy   int      `json:"is_finding_buddy"`  // 是否是找旅伴帖子 (0: 否, 1: 是)
+	BuddyDescription string   `json:"buddy_description"` // 找旅伴的需求描述
 }
 
 // GetNotesByCreatorIDResponse 获取笔记响应结构
@@ -41,30 +44,35 @@ type GetNotesByCreatorIDResponse struct {
 
 // GetNoteResponse 获取笔记的响应结构
 type GetNoteResponse struct {
-	Status         string   `json:"status"`                                                            // 响应状态
-	Code           int      `json:"code"`                                                              // 响应代码
-	NoteID         uint     `gorm:"primaryKey;autoIncrement;autoIncrementStart:100001" json:"note_id"` // 主键 ID
-	NoteTitle      string   `json:"note_title"`                                                        // 笔记标题
-	NoteContent    string   `json:"note_content"`                                                      // 笔记内容
-	ViewCount      int      `json:"view_count"`                                                        // 浏览计数
-	NoteTagList    string   `json:"note_tag_list"`                                                     // 笔记标签列表（字符串类型）
-	NoteType       string   `json:"note_type"`                                                         // 笔记类型 	// 笔记相关 URL
-	NoteCreatorID  uint     `gorm:"not null;index" json:"note_creator_id"`                             // 创建者 ID（外键）
-	NoteUpdateTime int64    `json:"note_update_time"`                                                  // 笔记更新时间 (Unix 时间戳)
-	LikeCounts     int      `json:"like_counts"`
-	CollectCounts  int      `json:"collect_counts"`
-	Error          string   `json:"error,omitempty"` // 错误信息
-	NoteURLS       []string `json:"note_urls"`
+	Status           string   `json:"status"`                                                            // 响应状态
+	Code             int      `json:"code"`                                                              // 响应代码
+	NoteID           uint     `gorm:"primaryKey;autoIncrement;autoIncrementStart:100001" json:"note_id"` // 主键 ID
+	NoteTitle        string   `json:"note_title"`                                                        // 笔记标题
+	NoteContent      string   `json:"note_content"`                                                      // 笔记内容
+	ViewCount        int      `json:"view_count"`                                                        // 浏览计数
+	NoteTagList      string   `json:"note_tag_list"`                                                     // 笔记标签列表（字符串类型）
+	NoteType         string   `json:"note_type"`                                                         // 笔记类型 	// 笔记相关 URL
+	NoteCreatorID    uint     `gorm:"not null;index" json:"note_creator_id"`                             // 创建者 ID（外键）
+	NoteUpdateTime   int64    `json:"note_update_time"`                                                  // 笔记更新时间 (Unix 时间戳)
+	LikeCounts       int      `json:"like_counts"`
+	CollectCounts    int      `json:"collect_counts"`
+	CommentCounts    int      `json:"comment_counts"`
+	IsFindingBuddy   int      `json:"is_finding_buddy"`  // 是否是找旅伴帖子 (0: 否, 1: 是)
+	BuddyDescription string   `json:"buddy_description"` // 找旅伴的需求描述
+	Error            string   `json:"error,omitempty"`   // 错误信息
+	NoteURLS         []string `json:"note_urls"`
 }
 
 // UpdateNoteRequest 更新笔记的请求参数
 type UpdateNoteRequest struct {
-	NoteID      uint   `json:"note_id" binding:"required"` // 笔记 ID
-	NoteTitle   string `json:"note_title"`                 // 笔记标题
-	NoteContent string `json:"note_content"`               // 笔记内容
-	NoteTagList string `json:"note_tag_list"`              // 笔记标签列表
-	NoteType    string `json:"note_type"`                  // 笔记类型
-	NoteURLs    string `json:"note_URLs"`                  // 笔记相关 URL
+	NoteID           uint   `json:"note_id" binding:"required"` // 笔记 ID
+	NoteTitle        string `json:"note_title"`                 // 笔记标题
+	NoteContent      string `json:"note_content"`               // 笔记内容
+	NoteTagList      string `json:"note_tag_list"`              // 笔记标签列表
+	NoteType         string `json:"note_type"`                  // 笔记类型
+	NoteURLs         string `json:"note_URLs"`                  // 笔记相关 URL
+	IsFindingBuddy   int    `json:"is_finding_buddy"`           // 是否是找旅伴帖子 (0: 否, 1: 是)
+	BuddyDescription string `json:"buddy_description"`          // 找旅伴的需求描述
 }
 
 // UpdateNoteResponse 更新笔记的响应
@@ -76,13 +84,14 @@ type UpdateNoteResponse struct {
 
 // PublishNoteRequest 发布笔记请求参数
 type PublishNoteRequest struct {
-	NoteTitle     string   `json:"noteTitle" binding:"required"`
-	NoteContent   string   `json:"noteContent" binding:"required"`
-	NoteCount     int      `json:"noteCount"`
-	NoteTagList   []string `json:"noteTagList"` // 使用数组类型
-	NoteType      string   `json:"noteType"`
-	NoteURLs      string   `json:"noteURLs"`
-	NoteCreatorID uint     `json:"noteCreatorID"`
+	NoteTitle      string   `json:"noteTitle" binding:"required"`
+	NoteContent    string   `json:"noteContent" binding:"required"`
+	NoteCount      int      `json:"noteCount"`
+	NoteTagList    []string `json:"noteTagList"` // 使用数组类型
+	NoteType       string   `json:"noteType"`
+	NoteURLs       string   `json:"noteURLs"`
+	NoteCreatorID  uint     `json:"noteCreatorID"`
+	IsFindingBuddy int      `json:"is_finding_buddy"` // 是否是找旅伴帖子 (0: 否, 1: 是)
 }
 
 // PublishNoteResponse 笔记发布成功的返回信息
@@ -122,12 +131,24 @@ func PublishNoteWithPics(ctx *gin.Context) {
 	noteTagList := ctx.PostForm("note_tag_list")
 	noteType := ctx.PostForm("note_type")
 	noteCreatorID := ctx.PostForm("note_creator_id")
+	isFindingBuddy := ctx.PostForm("is_finding_buddy")
+	buddyDescription := ctx.PostForm("buddy_description")
 
-	if noteTitle == "" || noteContent == "" || noteCreatorID == "" {
+	if noteTitle == "" || noteContent == "" || noteCreatorID == "" || isFindingBuddy != "0" || isFindingBuddy != "1" {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"status": "失败",
 			"code":   400,
 			"error":  "缺少必要参数",
+		})
+		return
+	}
+
+	// 如果是找旅伴帖子，检查 buddy_description 是否为空
+	if isFindingBuddy == "1" && buddyDescription == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "找旅伴帖子必须提供需求描述",
 		})
 		return
 	}
@@ -208,15 +229,18 @@ func PublishNoteWithPics(ctx *gin.Context) {
 	}
 
 	// 创建 Note 记录
+	isFindingBuddyInt, _ := strconv.Atoi(isFindingBuddy)
 	note := models.Note{
-		NoteTitle:      noteTitle,
-		NoteContent:    noteContent,
-		ViewCount:      0,
-		NoteTagList:    noteTagList,
-		NoteType:       noteType,
-		NoteURLs:       string(noteURLsJSON),
-		NoteCreatorID:  uint(creatorID),
-		NoteUpdateTime: time.Now().Unix(),
+		NoteTitle:        noteTitle,
+		NoteContent:      noteContent,
+		ViewCount:        0,
+		NoteTagList:      noteTagList,
+		NoteType:         noteType,
+		NoteURLs:         string(noteURLsJSON),
+		NoteCreatorID:    uint(creatorID),
+		NoteUpdateTime:   time.Now().Unix(),
+		IsFindingBuddy:   isFindingBuddyInt,
+		BuddyDescription: buddyDescription,
 	}
 
 	// 保存 Note 到数据库
@@ -292,6 +316,8 @@ func UpdateNoteWithPics(ctx *gin.Context) {
 	noteContent := ctx.PostForm("note_content")
 	noteTagList := ctx.PostForm("note_tag_list")
 	noteType := ctx.PostForm("note_type")
+	isFindingBuddy := ctx.PostForm("is_finding_buddy")
+	buddyDescription := ctx.PostForm("buddy_description")
 
 	// 检查必要参数
 	if noteID == "" {
@@ -299,6 +325,25 @@ func UpdateNoteWithPics(ctx *gin.Context) {
 			"status": "失败",
 			"code":   400,
 			"error":  "缺少必要的 Note ID 参数",
+		})
+		return
+	}
+
+	if isFindingBuddy != "0" || isFindingBuddy != "1" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "isFindingBuddy参数只可以为0或1",
+		})
+		return
+	}
+
+	// 如果是找旅伴帖子，检查 buddy_description 是否为空
+	if isFindingBuddy == "1" && buddyDescription == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "找旅伴帖子必须提供需求描述",
 		})
 		return
 	}
@@ -401,6 +446,13 @@ func UpdateNoteWithPics(ctx *gin.Context) {
 	if noteType != "" {
 		note.NoteType = noteType
 	}
+	if isFindingBuddy == "0" {
+		isFindingBud, _ := strconv.Atoi(isFindingBuddy)
+		note.IsFindingBuddy = isFindingBud
+	}
+	if isFindingBuddy == "1" && buddyDescription != "" {
+		note.BuddyDescription = buddyDescription
+	}
 
 	// 存下旧的文件urls
 	var oldURLs []string
@@ -480,12 +532,33 @@ func PublishNoteWithVideo(ctx *gin.Context) {
 	noteTagList := ctx.PostForm("note_tag_list")
 	noteType := ctx.PostForm("note_type")
 	noteCreatorID := ctx.PostForm("note_creator_id")
+	isFindingBuddy := ctx.PostForm("is_finding_buddy")
+	buddyDescription := ctx.PostForm("buddy_description")
 
 	if noteTitle == "" || noteContent == "" || noteCreatorID == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"status": "失败",
 			"code":   400,
 			"error":  "缺少必要参数",
+		})
+		return
+	}
+
+	if isFindingBuddy != "0" || isFindingBuddy != "1" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "isFindingBuddy参数只可以为0或1",
+		})
+		return
+	}
+
+	// 如果是找旅伴帖子，检查 buddy_description 是否为空
+	if isFindingBuddy == "1" && buddyDescription == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "找旅伴帖子必须提供需求描述",
 		})
 		return
 	}
@@ -576,15 +649,18 @@ func PublishNoteWithVideo(ctx *gin.Context) {
 	}
 
 	// 创建 Note 记录
+	isFindingBuddyInt, _ := strconv.Atoi(isFindingBuddy)
 	note := models.Note{
-		NoteTitle:      noteTitle,
-		NoteContent:    noteContent,
-		ViewCount:      0,
-		NoteTagList:    noteTagList,
-		NoteType:       noteType,
-		NoteURLs:       string(noteURLsJSON),
-		NoteCreatorID:  uint(creatorID),
-		NoteUpdateTime: time.Now().Unix(),
+		NoteTitle:        noteTitle,
+		NoteContent:      noteContent,
+		ViewCount:        0,
+		NoteTagList:      noteTagList,
+		NoteType:         noteType,
+		NoteURLs:         string(noteURLsJSON),
+		NoteCreatorID:    uint(creatorID),
+		NoteUpdateTime:   time.Now().Unix(),
+		IsFindingBuddy:   isFindingBuddyInt,
+		BuddyDescription: buddyDescription,
 	}
 
 	// 保存 Note 到数据库
@@ -660,6 +736,8 @@ func UpdateNoteWithVideo(ctx *gin.Context) {
 	noteContent := ctx.PostForm("note_content")
 	noteTagList := ctx.PostForm("note_tag_list")
 	noteType := ctx.PostForm("note_type")
+	isFindingBuddy := ctx.PostForm("is_finding_buddy")
+	buddyDescription := ctx.PostForm("buddy_description")
 
 	// 检查必要参数
 	if noteID == "" {
@@ -667,6 +745,25 @@ func UpdateNoteWithVideo(ctx *gin.Context) {
 			"status": "失败",
 			"code":   400,
 			"error":  "缺少必要的 Note ID 参数",
+		})
+		return
+	}
+
+	if isFindingBuddy != "0" || isFindingBuddy != "1" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "isFindingBuddy参数只可以为0或1",
+		})
+		return
+	}
+
+	// 如果是找旅伴帖子，检查 buddy_description 是否为空
+	if isFindingBuddy == "1" && buddyDescription == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "找旅伴帖子必须提供需求描述",
 		})
 		return
 	}
@@ -768,6 +865,13 @@ func UpdateNoteWithVideo(ctx *gin.Context) {
 	}
 	if noteType != "" {
 		note.NoteType = noteType
+	}
+	if isFindingBuddy == "0" {
+		isFindingBud, _ := strconv.Atoi(isFindingBuddy)
+		note.IsFindingBuddy = isFindingBud
+	}
+	if isFindingBuddy == "1" && buddyDescription != "" {
+		note.BuddyDescription = buddyDescription
 	}
 
 	// 存下旧的文件urls
