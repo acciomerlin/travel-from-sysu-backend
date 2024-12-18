@@ -329,15 +329,6 @@ func UpdateNoteWithPics(ctx *gin.Context) {
 		return
 	}
 
-	if isFindingBuddy != "0" || isFindingBuddy != "1" {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"status": "失败",
-			"code":   400,
-			"error":  "isFindingBuddy参数只可以为0或1",
-		})
-		return
-	}
-
 	// 如果是找旅伴帖子，检查 buddy_description 是否为空
 	if isFindingBuddy == "1" && buddyDescription == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{
@@ -544,15 +535,6 @@ func PublishNoteWithVideo(ctx *gin.Context) {
 		return
 	}
 
-	if isFindingBuddy != "0" || isFindingBuddy != "1" {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"status": "失败",
-			"code":   400,
-			"error":  "isFindingBuddy参数只可以为0或1",
-		})
-		return
-	}
-
 	// 如果是找旅伴帖子，检查 buddy_description 是否为空
 	if isFindingBuddy == "1" && buddyDescription == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{
@@ -745,15 +727,6 @@ func UpdateNoteWithVideo(ctx *gin.Context) {
 			"status": "失败",
 			"code":   400,
 			"error":  "缺少必要的 Note ID 参数",
-		})
-		return
-	}
-
-	if isFindingBuddy != "0" || isFindingBuddy != "1" {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"status": "失败",
-			"code":   400,
-			"error":  "isFindingBuddy参数只可以为0或1",
 		})
 		return
 	}
