@@ -40,6 +40,7 @@ func SetupRouter() *gin.Engine {
 		note.POST("/uncollect", controllers.Uncollect)
 		note.GET("/getNotesByLikes", controllers.GetNotesByLikes)
 		note.GET("/getNotesByCollects", controllers.GetNotesByCollects)
+		note.GET("/getHotRecommendations", controllers.GetHotRecommendations)
 	}
 	user := r.Group("/api/user")
 	{
