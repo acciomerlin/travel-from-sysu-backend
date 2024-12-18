@@ -911,40 +911,27 @@ func GetNotesByCreatorID(ctx *gin.Context) {
 		limit = n
 	}
 
-	// 查询用户关注的用户 ID
-	var followers []models.Follower
-	if err := global.Db.Where("uid = ?", creatorId).Find(&followers).Error; err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"success": false,
-			"msg":     "查询关注信息失败",
-		})
-		return
-	}
-
-	// 获取关注的用户 ID 列表
-	var followedUserIDs []uint
-	for _, follower := range followers {
-		followedUserIDs = append(followedUserIDs, follower.Fid)
-	}
-
-	// 构造查询条件
-	query := global.Db.Where("note_type = ?", creatorId)
+	// 根据游标查询
+	query := global.Db
 	if cursor != "" {
-		// 游标为时间戳（Unix 时间）
-		if timestamp, err := strconv.ParseInt(cursor, 10, 64); err == nil {
-			query = query.Where("note_update_time < ?", timestamp) // 返回最近更新的帖子，所以 <
-		} else {
+		// 使用游标（时间戳）来进行分页，获取小于游标的记录（倒序）
+		cursorTime, err := strconv.ParseInt(cursor, 10, 64)
+		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{
 				"code":    400,
 				"success": false,
-				"msg":     "无效的游标参数",
+				"msg":     "无效的游标",
 			})
 			return
 		}
+		// 游标小于等于当前时间的记录进行查询
+		query = query.Where("note_update_time < ?", cursorTime)
+	} else {
+		// 如果没有提供游标，获取所有数据
+		query = query
 	}
 
-	// 查询帖子数据
+	// 查询帖子数据，按照更新的时间倒序排序，返回最多 `limit` 条
 	var notes []models.Note
 	if err := query.Order("note_update_time DESC").Limit(limit).Find(&notes).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -978,7 +965,7 @@ func GetNotesByCreatorID(ctx *gin.Context) {
 
 	// 返回结果
 	ctx.JSON(http.StatusOK, gin.H{
-		"code":    0,
+		"code":    200,
 		"success": true,
 		"msg":     "成功",
 		"data": gin.H{
@@ -1062,7 +1049,7 @@ func GetNotesByUpdateTime(ctx *gin.Context) {
 
 	// 返回结果
 	ctx.JSON(http.StatusOK, gin.H{
-		"code":    0,
+		"code":    200,
 		"success": true,
 		"msg":     "成功",
 		"data": gin.H{
@@ -1146,7 +1133,7 @@ func GetNotesByLikes(ctx *gin.Context) {
 
 	// 返回结果
 	ctx.JSON(http.StatusOK, gin.H{
-		"code":    0,
+		"code":    200,
 		"success": true,
 		"msg":     "成功",
 		"data": gin.H{
@@ -1230,7 +1217,7 @@ func GetNotesByCollects(ctx *gin.Context) {
 
 	// 返回结果
 	ctx.JSON(http.StatusOK, gin.H{
-		"code":    0,
+		"code":    200,
 		"success": true,
 		"msg":     "成功",
 		"data": gin.H{

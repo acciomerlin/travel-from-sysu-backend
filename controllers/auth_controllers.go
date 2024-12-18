@@ -193,6 +193,19 @@ func Register(ctx *gin.Context) {
 		}
 	}
 
+	if user.Username != "" {
+		// 如果用户名不为空，检查是否已有相同用户名的用户
+		if err := global.Db.Where("username = ?", user.Email).First(&existingUser).Error; err == nil {
+			// 如果查到已有用户，返回用户名已注册错误
+			ctx.JSON(http.StatusBadRequest, ErrorResponse{
+				Status: "失败",
+				Code:   400,
+				Error:  "用户名已被注册",
+			})
+			return
+		}
+	}
+
 	// 将用户记录插入数据库
 	if err := global.Db.Create(&user).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, ErrorResponse{
@@ -402,7 +415,7 @@ func GetUserInfoByID(ctx *gin.Context) {
 
 	// 查找用户
 	var user models.User
-	if err := global.Db.Where("id = ?", id).First(&user).Error; err != nil {
+	if err := global.Db.Where("user_id = ?", id).First(&user).Error; err != nil {
 		// 如果没有找到对应的用户
 		ctx.JSON(http.StatusNotFound, ErrorResponse{
 			Status: "失败",
