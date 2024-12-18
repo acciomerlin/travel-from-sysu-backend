@@ -134,7 +134,7 @@ func PublishNoteWithPics(ctx *gin.Context) {
 	isFindingBuddy := ctx.PostForm("is_finding_buddy")
 	buddyDescription := ctx.PostForm("buddy_description")
 
-	if noteTitle == "" || noteContent == "" || noteCreatorID == "" || isFindingBuddy != "0" || isFindingBuddy != "1" {
+	if noteTitle == "" || noteContent == "" || noteCreatorID == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"status": "失败",
 			"code":   400,
