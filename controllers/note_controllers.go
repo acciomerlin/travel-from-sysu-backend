@@ -49,14 +49,14 @@ type GetNoteResponse struct {
 	NoteID           uint     `gorm:"primaryKey;autoIncrement;autoIncrementStart:100001" json:"note_id"` // 主键 ID
 	NoteTitle        string   `json:"note_title"`                                                        // 笔记标题
 	NoteContent      string   `json:"note_content"`                                                      // 笔记内容
-	ViewCount        int      `json:"view_count"`                                                        // 浏览计数
+	ViewCount        uint     `json:"view_count"`                                                        // 浏览计数
 	NoteTagList      string   `json:"note_tag_list"`                                                     // 笔记标签列表（字符串类型）
 	NoteType         string   `json:"note_type"`                                                         // 笔记类型 	// 笔记相关 URL
 	NoteCreatorID    uint     `gorm:"not null;index" json:"note_creator_id"`                             // 创建者 ID（外键）
 	NoteUpdateTime   int64    `json:"note_update_time"`                                                  // 笔记更新时间 (Unix 时间戳)
-	LikeCounts       int      `json:"like_counts"`
-	CollectCounts    int      `json:"collect_counts"`
-	CommentCounts    int      `json:"comment_counts"`
+	LikeCounts       uint     `json:"like_counts"`
+	CollectCounts    uint     `json:"collect_counts"`
+	CommentCounts    uint     `json:"comment_counts"`
 	IsFindingBuddy   int      `json:"is_finding_buddy"`  // 是否是找旅伴帖子 (0: 否, 1: 是)
 	BuddyDescription string   `json:"buddy_description"` // 找旅伴的需求描述
 	Error            string   `json:"error,omitempty"`   // 错误信息
@@ -1404,13 +1404,13 @@ func GetNoteByID(ctx *gin.Context) {
 		NoteID:         note.NoteID,
 		NoteTitle:      note.NoteTitle,
 		NoteContent:    note.NoteContent,
-		ViewCount:      note.ViewCount,
+		ViewCount:      uint(int(note.ViewCount)),
 		NoteTagList:    note.NoteTagList,
 		NoteType:       note.NoteType,
 		NoteCreatorID:  note.NoteCreatorID,
 		NoteUpdateTime: note.NoteUpdateTime,
-		LikeCounts:     note.LikeCounts,
-		CollectCounts:  note.CollectCounts,
+		LikeCounts:     uint(note.LikeCounts),
+		CollectCounts:  uint(int(note.CollectCounts)),
 		NoteURLS:       noteURLs,
 	})
 }
@@ -1684,7 +1684,6 @@ func GetNotesByLikes(ctx *gin.Context) {
 	})
 }
 
-// GetNotesByCollects 根据笔记收藏数多少获取笔记
 func GetNotesByCollects(ctx *gin.Context) {
 	// 获取请求参数
 	noteType := ctx.Query("note_type")
@@ -1773,120 +1772,131 @@ func GetNotesByCollects(ctx *gin.Context) {
 	})
 }
 
-//
-//func GetHotRecommendations(ctx *gin.Context) {
-//	// 获取请求参数
-//	num := ctx.Query("num")
-//
-//	// 参数校验
-//	if num == "" {
-//		ctx.JSON(http.StatusBadRequest, gin.H{
-//			"code":    400,
-//			"success": false,
-//			"msg":     "参数缺失",
-//		})
-//		return
-//	}
-//
-//	// 默认最大条数
-//	limit := 30
-//	if n, err := strconv.Atoi(num); err == nil && n > 0 && n <= 30 {
-//		limit = n
-//	}
-//
-//	// 构造查询条件
-//	query := global.Db.Model(&models.Note{})
-//
-//	// 查询笔记数据（获取所有笔记数据）
-//	var notes []models.Note
-//	if err := query.Find(&notes).Error; err != nil {
-//		ctx.JSON(http.StatusInternalServerError, gin.H{
-//			"code":    500,
-//			"success": false,
-//			"msg":     "查询笔记失败",
-//		})
-//		return
-//	}
-//
-//	// 归一化数据：计算最大值和最小值
-//	var maxLikes, minLikes, maxCollects, minCollects, maxComments, minComments int64
-//	var maxTimestamp, minTimestamp int64
-//
-//	for _, note := range notes {
-//		if note.LikeCounts > maxLikes {
-//			maxLikes = note.LikeCounts
-//		}
-//		if note.LikeCounts < minLikes {
-//			minLikes = note.LikeCounts
-//		}
-//		if note.CollectCounts > maxCollects {
-//			maxCollects = note.CollectCounts
-//		}
-//		if note.CollectCounts < minCollects {
-//			minCollects = note.CollectCounts
-//		}
-//		if note.CommentCounts > maxComments {
-//			maxComments = note.CommentCounts
-//		}
-//		if note.CommentCounts < minComments {
-//			minComments = note.CommentCounts
-//		}
-//		if note.NoteUpdateTime > maxTimestamp {
-//			maxTimestamp = note.NoteUpdateTime
-//		}
-//		if note.NoteUpdateTime < minTimestamp {
-//			minTimestamp = note.NoteUpdateTime
-//		}
-//	}
-//
-//	// 归一化后的数据
-//	for i := range notes {
-//		notes[i].LikeCounts = (notes[i].LikeCounts - minLikes) * 100 / (maxLikes - minLikes)
-//		notes[i].CollectCounts = (notes[i].CollectCounts - minCollects) * 100 / (maxCollects - minCollects)
-//		notes[i].CommentCounts = (notes[i].CommentCounts - minComments) * 100 / (maxComments - minComments)
-//		notes[i].NoteUpdateTime = (notes[i].NoteUpdateTime - minTimestamp) * 100 / (maxTimestamp - minTimestamp)
-//	}
-//
-//	// 计算热度值：可以是一个组合的加权分数（你也可以调整权重）
-//	for i := range notes {
-//		// 热度分数计算公式
-//		notes[i].Score = 0.4*float64(notes[i].NoteUpdateTime) +
-//			0.3*float64(notes[i].CollectCounts) +
-//			0.2*float64(notes[i].LikeCounts) +
-//			0.1*float64(notes[i].CommentCounts)
-//	}
-//
-//	// 按照热度分数降序排序
-//	sort.Slice(notes, func(i, j int) bool {
-//		return notes[i].Score > notes[j].Score
-//	})
-//
-//	// 获取前 limit 条数据
-//	if len(notes) > limit {
-//		notes = notes[:limit]
-//	}
-//
-//	// 构造返回结果
-//	var responseNotes []gin.H
-//	for _, note := range notes {
-//		responseNotes = append(responseNotes, gin.H{
-//			"note_id":          note.NoteID,
-//			"note_title":       note.NoteTitle,
-//			"note_content":     note.NoteContent,
-//			"like_counts":      note.LikeCounts,
-//			"collect_counts":   note.CollectCounts,
-//			"comment_counts":   note.CommentCounts,
-//			"note_update_time": note.NoteUpdateTime,
-//		})
-//	}
-//
-//	// 返回结果
-//	ctx.JSON(http.StatusOK, gin.H{
-//		"code":    0,
-//		"success": true,
-//		"msg":     "成功",
-//		"data": gin.H{
-//			"notes": responseNotes,
-//		},
-//	})
-//}
+// GetHotRecommendationsResponse 响应结构体
+type GetHotRecommendationsResponse struct {
+	Code    int                 `json:"code"`
+	Success bool                `json:"success"`
+	Msg     string              `json:"msg"`
+	Data    RecommendationsData `json:"data"`
+}
+
+// RecommendationsData 数据部分
+type RecommendationsData struct {
+	Notes      []NoteResponse `json:"notes"`
+	NextCursor string         `json:"nextCursor"`
+}
+
+// NoteResponse 笔记返回结构体
+type NoteResponse struct {
+	NoteID         uint    `json:"note_id"`
+	NoteTitle      string  `json:"note_title"`
+	NoteContent    string  `json:"note_content"`
+	LikeCounts     uint    `json:"like_counts"`
+	CollectCounts  uint    `json:"collect_counts"`
+	CommentCounts  uint    `json:"comment_counts"`
+	NoteCreatorID  uint    `json:"note_creator_id"`
+	NoteUpdateTime uint    `json:"note_update_time"`
+	ViewCount      uint    `json:"view_count"`
+	NoteTagList    string  `json:"note_tag_list"`
+	NoteURLs       string  `json:"note_urls"`
+	Score          float64 `json:"score"` // 热度分数
+}
+
+// 获取热度推荐
+func GetHotRecommendations(ctx *gin.Context) {
+	// 获取请求参数
+	numStr := ctx.Query("num")
+	cursorStr := ctx.Query("cursor") // 游标，用于分页（基于分数）
+
+	// 参数校验
+	if numStr == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"success": false,
+			"msg":     "参数缺失",
+		})
+		return
+	}
+
+	// 默认最大条数
+	limit := 30
+	if n, err := strconv.Atoi(numStr); err == nil && n > 0 && n <= 30 {
+		limit = n
+	} else if err != nil || n <= 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"success": false,
+			"msg":     "无效的num参数",
+		})
+		return
+	}
+
+	// 构造查询条件
+	query := global.Db.Model(&models.Note{})
+
+	// 如果有游标，添加过滤条件，只基于score进行分页
+	if cursorStr != "" {
+		cursorScore, err := strconv.ParseFloat(cursorStr, 64)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"code":    400,
+				"success": false,
+				"msg":     "无效的游标参数",
+			})
+			return
+		}
+		// 基于分数进行分页，score < 游标分数
+		query = query.Where("score < ?", cursorScore)
+	}
+
+	// 查询笔记数据，按分数降序排序
+	var notes []models.Note
+	if err := query.Order("score DESC").Limit(limit).Find(&notes).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"success": false,
+			"msg":     "查询笔记失败",
+		})
+		return
+	}
+
+	// 构造返回结果
+	var responseNotes []NoteResponse
+	for _, note := range notes {
+		responseNotes = append(responseNotes, NoteResponse{
+			NoteID:         note.NoteID,
+			NoteTitle:      note.NoteTitle,
+			NoteContent:    note.NoteContent,
+			LikeCounts:     uint(note.LikeCounts),
+			CollectCounts:  note.CollectCounts,
+			CommentCounts:  note.CommentCounts,
+			NoteCreatorID:  note.NoteCreatorID,
+			NoteUpdateTime: uint(note.NoteUpdateTime),
+			ViewCount:      note.ViewCount,
+			NoteTagList:    note.NoteTagList,
+			NoteURLs:       note.NoteURLs,
+			Score:          note.Score,
+		})
+	}
+
+	// 设置下一个游标
+	var nextCursor string
+	if len(notes) == limit {
+		lastNote := notes[len(notes)-1]
+		nextCursor = strconv.FormatFloat(lastNote.Score, 'f', 6, 64) // 将最后一个笔记的score作为游标
+	}
+
+	// 构造响应
+	response := GetHotRecommendationsResponse{
+		Code:    200,
+		Success: true,
+		Msg:     "成功",
+		Data: RecommendationsData{
+			Notes:      responseNotes,
+			NextCursor: nextCursor, // 下次分页使用的游标
+		},
+	}
+
+	// 返回结果
+	ctx.JSON(http.StatusOK, response)
+}

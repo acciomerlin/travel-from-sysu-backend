@@ -19,9 +19,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"travel-from-sysu-backend/config"
 	"travel-from-sysu-backend/router"
+	"travel-from-sysu-backend/utils"
 )
 
 func main() {
+	go utils.UpdateHotRecommendations()
+
 	config.InitConfig()
 	r := router.SetupRouter()
 
