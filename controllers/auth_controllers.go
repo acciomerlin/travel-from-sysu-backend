@@ -459,7 +459,7 @@ func UploadAvatar(ctx *gin.Context) {
 	// 文件大小<5mb
 	const minFileSize = 5 * 1024 * 1024 // 5MB
 	if file.Size > minFileSize {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("文件大小不能小于 %dMB", minFileSize/(1024*1024))})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("头像图片大小不能大于 %dMB", minFileSize/(1024*1024))})
 		return
 	}
 
@@ -479,7 +479,7 @@ func UploadAvatar(ctx *gin.Context) {
 	}
 
 	// 将文件上传到阿里云 OSS
-	filePath, err := oss.UploadAliyunOss(file)
+	filePath, err := oss.UploadFileToAliyunOss(file, "avatar")
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "OSS上传失败: " + err.Error()})
 		return

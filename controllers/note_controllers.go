@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"log"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -16,17 +17,20 @@ import (
 )
 
 type NewNote struct {
-	NoteID         uint     `gorm:"primaryKey;autoIncrement;autoIncrementStart:100001" json:"note_id"` // 主键 ID
-	NoteTitle      string   `json:"note_title"`                                                        // 笔记标题
-	NoteContent    string   `json:"note_content"`                                                      // 笔记内容
-	ViewCount      int      `json:"view_count"`                                                        // 浏览计数
-	NoteTagList    string   `json:"note_tag_list"`                                                     // 笔记标签列表（字符串类型）
-	NoteType       string   `json:"note_type"`
-	NoteURLS       []string `json:"note_urls"`
-	NoteCreatorID  uint     `gorm:"not null;index" json:"note_creator_id"` // 创建者 ID（外键）
-	NoteUpdateTime int64    `json:"note_update_time"`                      // 笔记更新时间 (Unix 时间戳)
-	LikeCounts     int      `json:"like_counts"`
-	CollectCounts  int      `json:"collect_counts"`
+	NoteID           uint     `gorm:"primaryKey;autoIncrement;autoIncrementStart:100001" json:"note_id"` // 主键 ID
+	NoteTitle        string   `json:"note_title"`                                                        // 笔记标题
+	NoteContent      string   `json:"note_content"`                                                      // 笔记内容
+	ViewCount        int      `json:"view_count"`                                                        // 浏览计数
+	NoteTagList      string   `json:"note_tag_list"`                                                     // 笔记标签列表（字符串类型）
+	NoteType         string   `json:"note_type"`
+	NoteURLS         []string `json:"note_urls"`
+	NoteCreatorID    uint     `gorm:"not null;index" json:"note_creator_id"` // 创建者 ID（外键）
+	NoteUpdateTime   int64    `json:"note_update_time"`                      // 笔记更新时间 (Unix 时间戳)
+	LikeCounts       int      `json:"like_counts"`
+	CollectCounts    int      `json:"collect_counts"`
+	CommentCounts    int      `json:"comment_counts"`
+	IsFindingBuddy   int      `json:"is_finding_buddy"`  // 是否是找旅伴帖子 (0: 否, 1: 是)
+	BuddyDescription string   `json:"buddy_description"` // 找旅伴的需求描述
 }
 
 // GetNotesByCreatorIDResponse 获取笔记响应结构
@@ -40,30 +44,35 @@ type GetNotesByCreatorIDResponse struct {
 
 // GetNoteResponse 获取笔记的响应结构
 type GetNoteResponse struct {
-	Status         string   `json:"status"`                                                            // 响应状态
-	Code           int      `json:"code"`                                                              // 响应代码
-	NoteID         uint     `gorm:"primaryKey;autoIncrement;autoIncrementStart:100001" json:"note_id"` // 主键 ID
-	NoteTitle      string   `json:"note_title"`                                                        // 笔记标题
-	NoteContent    string   `json:"note_content"`                                                      // 笔记内容
-	ViewCount      int      `json:"view_count"`                                                        // 浏览计数
-	NoteTagList    string   `json:"note_tag_list"`                                                     // 笔记标签列表（字符串类型）
-	NoteType       string   `json:"note_type"`                                                         // 笔记类型 	// 笔记相关 URL
-	NoteCreatorID  uint     `gorm:"not null;index" json:"note_creator_id"`                             // 创建者 ID（外键）
-	NoteUpdateTime int64    `json:"note_update_time"`                                                  // 笔记更新时间 (Unix 时间戳)
-	LikeCounts     int      `json:"like_counts"`
-	CollectCounts  int      `json:"collect_counts"`
-	Error          string   `json:"error,omitempty"` // 错误信息
-	NoteURLS       []string `json:"note_urls"`
+	Status           string   `json:"status"`                                                            // 响应状态
+	Code             int      `json:"code"`                                                              // 响应代码
+	NoteID           uint     `gorm:"primaryKey;autoIncrement;autoIncrementStart:100001" json:"note_id"` // 主键 ID
+	NoteTitle        string   `json:"note_title"`                                                        // 笔记标题
+	NoteContent      string   `json:"note_content"`                                                      // 笔记内容
+	ViewCount        int      `json:"view_count"`                                                        // 浏览计数
+	NoteTagList      string   `json:"note_tag_list"`                                                     // 笔记标签列表（字符串类型）
+	NoteType         string   `json:"note_type"`                                                         // 笔记类型 	// 笔记相关 URL
+	NoteCreatorID    uint     `gorm:"not null;index" json:"note_creator_id"`                             // 创建者 ID（外键）
+	NoteUpdateTime   int64    `json:"note_update_time"`                                                  // 笔记更新时间 (Unix 时间戳)
+	LikeCounts       int      `json:"like_counts"`
+	CollectCounts    int      `json:"collect_counts"`
+	CommentCounts    int      `json:"comment_counts"`
+	IsFindingBuddy   int      `json:"is_finding_buddy"`  // 是否是找旅伴帖子 (0: 否, 1: 是)
+	BuddyDescription string   `json:"buddy_description"` // 找旅伴的需求描述
+	Error            string   `json:"error,omitempty"`   // 错误信息
+	NoteURLS         []string `json:"note_urls"`
 }
 
 // UpdateNoteRequest 更新笔记的请求参数
 type UpdateNoteRequest struct {
-	NoteID      uint   `json:"note_id" binding:"required"` // 笔记 ID
-	NoteTitle   string `json:"note_title"`                 // 笔记标题
-	NoteContent string `json:"note_content"`               // 笔记内容
-	NoteTagList string `json:"note_tag_list"`              // 笔记标签列表
-	NoteType    string `json:"note_type"`                  // 笔记类型
-	NoteURLs    string `json:"note_URLs"`                  // 笔记相关 URL
+	NoteID           uint   `json:"note_id" binding:"required"` // 笔记 ID
+	NoteTitle        string `json:"note_title"`                 // 笔记标题
+	NoteContent      string `json:"note_content"`               // 笔记内容
+	NoteTagList      string `json:"note_tag_list"`              // 笔记标签列表
+	NoteType         string `json:"note_type"`                  // 笔记类型
+	NoteURLs         string `json:"note_URLs"`                  // 笔记相关 URL
+	IsFindingBuddy   int    `json:"is_finding_buddy"`           // 是否是找旅伴帖子 (0: 否, 1: 是)
+	BuddyDescription string `json:"buddy_description"`          // 找旅伴的需求描述
 }
 
 // UpdateNoteResponse 更新笔记的响应
@@ -75,13 +84,14 @@ type UpdateNoteResponse struct {
 
 // PublishNoteRequest 发布笔记请求参数
 type PublishNoteRequest struct {
-	NoteTitle     string   `json:"noteTitle" binding:"required"`
-	NoteContent   string   `json:"noteContent" binding:"required"`
-	NoteCount     int      `json:"noteCount"`
-	NoteTagList   []string `json:"noteTagList"` // 使用数组类型
-	NoteType      string   `json:"noteType"`
-	NoteURLs      string   `json:"noteURLs"`
-	NoteCreatorID uint     `json:"noteCreatorID"`
+	NoteTitle      string   `json:"noteTitle" binding:"required"`
+	NoteContent    string   `json:"noteContent" binding:"required"`
+	NoteCount      int      `json:"noteCount"`
+	NoteTagList    []string `json:"noteTagList"` // 使用数组类型
+	NoteType       string   `json:"noteType"`
+	NoteURLs       string   `json:"noteURLs"`
+	NoteCreatorID  uint     `json:"noteCreatorID"`
+	IsFindingBuddy int      `json:"is_finding_buddy"` // 是否是找旅伴帖子 (0: 否, 1: 是)
 }
 
 // PublishNoteResponse 笔记发布成功的返回信息
@@ -90,99 +100,6 @@ type PublishNoteResponse struct {
 	Code   int    `json:"code"`
 	Error  string `json:"error,omitempty"`
 	NID    uint   `json:"nid"`
-}
-
-func PublishNotePic(ctx *gin.Context) {
-
-	// 获取用户ID
-	nid := ctx.PostForm("nid")
-	if nid == "" {
-		ctx.JSON(http.StatusBadRequest, ErrorResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  "缺少用户id",
-		})
-		return
-	}
-
-	// 处理文件
-	files := ctx.Request.MultipartForm.File["files"] // "files" 是前端 form 中的 name 属性
-
-	if files == nil {
-		ctx.JSON(http.StatusBadRequest, ErrorResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  "没有上传文件，或者请求格式不正确",
-		})
-		return
-	}
-
-	// 用于保存所有上传后图片的 URL
-	var uploadedURLs []string
-
-	// 循环处理每个文件
-	for _, file := range files {
-		// 校验文件类型
-		ext := filepath.Ext(file.Filename)
-		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
-			ctx.JSON(http.StatusBadRequest, ErrorResponse{
-				Status: "失败",
-				Code:   400,
-				Error:  "不支持的文件类型",
-			})
-			return
-		}
-		// 将文件上传到阿里云 OSS
-		filePath, err := oss.UploadFileToOSS(file)
-		if err != nil {
-			ctx.JSON(http.StatusBadRequest, ErrorResponse{
-				Status: "失败",
-				Code:   400,
-				Error:  "文件上传失败",
-			})
-			return
-		}
-
-		// 添加上传成功的文件 URL 到数组
-		uploadedURLs = append(uploadedURLs, filePath)
-	}
-
-	// 将上传的 URL 数组序列化为 JSON 字符串
-	uploadedURLsJSON, err := json.Marshal(uploadedURLs)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, ErrorResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  "json序列化失败",
-		})
-		return
-	}
-
-	var note models.Note
-	if err := global.Db.First(&note, nid).Error; err != nil {
-		ctx.JSON(http.StatusBadRequest, ErrorResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  "未找到笔记",
-		})
-		return
-	}
-
-	note.NoteURLs = string(uploadedURLsJSON)
-	if err := global.Db.Save(&note).Error; err != nil {
-		ctx.JSON(http.StatusBadRequest, ErrorResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  "数据添加失败",
-		})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{
-		"status": "成功",
-		"Code":   200,
-	})
-
 }
 
 // DeleteNoteRequest 删除笔记请求参数
@@ -197,95 +114,862 @@ type DeleteNoteResponse struct {
 	Error  string `json:"error,omitempty"`
 }
 
-// PublishNote 发布笔记
-func PublishNote(ctx *gin.Context) {
-	var req PublishNoteRequest
+// cleanupUploadedFiles 删除已上传的文件
+func cleanupUploadedFiles(urls []string) {
+	for _, url := range urls {
+		if err := oss.DeleteFileFromAliyunOss(url); err != nil {
+			log.Printf("删除文件失败: %v", err)
+		}
+	}
+}
 
-	// 绑定 JSON 数据到 PublishNoteRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, ErrorResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  err.Error(),
+// PublishNoteWithPics 发布笔多图笔记（含上传笔记图片至oss）
+func PublishNoteWithPics(ctx *gin.Context) {
+	// 接收笔记信息
+	noteTitle := ctx.PostForm("note_title")
+	noteContent := ctx.PostForm("note_content")
+	noteTagList := ctx.PostForm("note_tag_list")
+	noteType := ctx.PostForm("note_type")
+	noteCreatorID := ctx.PostForm("note_creator_id")
+	isFindingBuddy := ctx.PostForm("is_finding_buddy")
+	buddyDescription := ctx.PostForm("buddy_description")
+
+	if noteTitle == "" || noteContent == "" || noteCreatorID == "" || isFindingBuddy != "0" || isFindingBuddy != "1" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "缺少必要参数",
 		})
 		return
 	}
 
-	// 创建 Note 实例
+	// 如果是找旅伴帖子，检查 buddy_description 是否为空
+	if isFindingBuddy == "1" && buddyDescription == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "找旅伴帖子必须提供需求描述",
+		})
+		return
+	}
+
+	creatorID, err := strconv.Atoi(noteCreatorID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "创建者ID格式错误",
+		})
+		return
+	}
+
+	// 检查用户是否存在
+	var user models.User
+	if err := global.Db.First(&user, "user_id = ?", creatorID).Error; err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "用户不存在",
+		})
+		return
+	}
+
+	// 处理文件
+	files := ctx.Request.MultipartForm.File["files"]
+	if files == nil {
+		ctx.JSON(http.StatusBadRequest, ErrorResponse{
+			Status: "失败",
+			Code:   400,
+			Error:  "没有上传文件，或者请求格式不正确",
+		})
+		return
+	}
+
+	var uploadedURLs []string
+
+	// 上传文件到 OSS
+	for _, file := range files {
+		ext := strings.ToLower(filepath.Ext(file.Filename))
+		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
+			// 删除已上传的文件
+			cleanupUploadedFiles(uploadedURLs)
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"status": "失败",
+				"code":   400,
+				"error":  "不支持的文件类型",
+			})
+			return
+		}
+
+		url, err := oss.UploadFileToAliyunOss(file, "note_pics")
+		if err != nil {
+			// 删除已上传的文件
+			cleanupUploadedFiles(uploadedURLs)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"status": "失败",
+				"code":   500,
+				"error":  "图片上传失败",
+			})
+			return
+		}
+		uploadedURLs = append(uploadedURLs, url)
+	}
+
+	// 转换 URL 为 JSON
+	noteURLsJSON, err := json.Marshal(uploadedURLs)
+	if err != nil {
+		// 删除已上传的文件
+		cleanupUploadedFiles(uploadedURLs)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "图片URL序列化失败",
+		})
+		return
+	}
+
+	// 创建 Note 记录
+	isFindingBuddyInt, _ := strconv.Atoi(isFindingBuddy)
 	note := models.Note{
-		NoteTitle:      req.NoteTitle,
-		NoteContent:    req.NoteContent,
-		ViewCount:      req.NoteCount,
-		NoteTagList:    strings.Join(req.NoteTagList, ","), // 将数组转换为字符串存储
-		NoteType:       req.NoteType,
-		NoteURLs:       req.NoteURLs,
-		NoteCreatorID:  req.NoteCreatorID,
-		NoteUpdateTime: time.Now().Unix(), // 设置时间戳
+		NoteTitle:        noteTitle,
+		NoteContent:      noteContent,
+		ViewCount:        0,
+		NoteTagList:      noteTagList,
+		NoteType:         noteType,
+		NoteURLs:         string(noteURLsJSON),
+		NoteCreatorID:    uint(creatorID),
+		NoteUpdateTime:   time.Now().Unix(),
+		IsFindingBuddy:   isFindingBuddyInt,
+		BuddyDescription: buddyDescription,
 	}
 
 	// 保存 Note 到数据库
 	if err := global.Db.Create(&note).Error; err != nil {
-		ctx.JSON(http.StatusInternalServerError, ErrorResponse{
-			Status: "失败",
-			Code:   500,
-			Error:  "笔记发布失败：" + err.Error(),
+		// 删除已上传的文件
+		cleanupUploadedFiles(uploadedURLs)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "笔记保存失败",
 		})
 		return
 	}
 
 	// 更新用户的 NoteCount 字段
 	if err := global.Db.Model(&models.User{}).
-		Where("user_id = ?", req.NoteCreatorID).
+		Where("user_id = ?", creatorID).
 		Update("note_count", gorm.Expr("note_count + ?", 1)).Error; err != nil {
-		ctx.JSON(http.StatusInternalServerError, ErrorResponse{
-			Status: "失败",
-			Code:   500,
-			Error:  "更新用户 NoteCount 失败",
+		// 删除已上传的文件，并删除 Note 记录
+		cleanupUploadedFiles(uploadedURLs)
+		global.Db.Delete(&note)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "更新用户 NoteCount 失败",
 		})
 		return
 	}
 
 	// 处理 Tag 和 TagNoteRelation
-	for _, tagName := range req.NoteTagList {
+	tags := strings.Split(noteTagList, ",")
+	for _, tagName := range tags {
 		var tag models.Tag
-		// 检查 Tag 是否已存在
 		if err := global.Db.Where("t_name = ?", tagName).First(&tag).Error; err != nil {
-			// Tag 不存在，创建新的 Tag
 			tag = models.Tag{
-				ID:         strconv.FormatInt(time.Now().UnixNano(), 10), // 使用时间戳作为 Tag ID
+				ID:         strconv.FormatInt(time.Now().UnixNano(), 10),
 				TName:      tagName,
-				Creator:    strconv.Itoa(int(req.NoteCreatorID)),
+				Creator:    noteCreatorID,
 				CreateDate: time.Now(),
 				UpdateDate: time.Now(),
 				UseCount:   1,
 			}
 			global.Db.Create(&tag)
 		} else {
-			// Tag 存在，更新 UseCount 和 UpdateTime
 			tag.UseCount++
 			tag.UpdateDate = time.Now()
 			global.Db.Save(&tag)
 		}
 
-		// 为每个 Tag 创建对应的 TagNoteRelation 记录
-		tagNoteRelation := models.TagNoteRelation{
+		relation := models.TagNoteRelation{
 			NID:        note.NoteID,
 			TID:        tag.ID,
-			CreatorID:  req.NoteCreatorID,
+			CreatorID:  uint(creatorID),
 			CreateDate: time.Now(),
 		}
-		global.Db.Create(&tagNoteRelation)
+		global.Db.Create(&relation)
 	}
 
 	// 成功响应
-	ctx.JSON(http.StatusOK, PublishNoteResponse{
-		Status: "笔记发布成功",
-		Code:   200,
-		NID:    note.NoteID,
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "成功",
+		"code":   200,
+		"nid":    note.NoteID,
+		"urls":   uploadedURLs,
 	})
 }
 
-// DeleteNote 删除笔记接口
+// UpdateNoteWithPics 更新多图笔记接口（含相应更新oss上文件）
+func UpdateNoteWithPics(ctx *gin.Context) {
+	// 获取请求参数
+	noteID := ctx.PostForm("note_id")
+	noteTitle := ctx.PostForm("note_title")
+	noteContent := ctx.PostForm("note_content")
+	noteTagList := ctx.PostForm("note_tag_list")
+	noteType := ctx.PostForm("note_type")
+	isFindingBuddy := ctx.PostForm("is_finding_buddy")
+	buddyDescription := ctx.PostForm("buddy_description")
+
+	// 检查必要参数
+	if noteID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "缺少必要的 Note ID 参数",
+		})
+		return
+	}
+
+	if isFindingBuddy != "0" || isFindingBuddy != "1" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "isFindingBuddy参数只可以为0或1",
+		})
+		return
+	}
+
+	// 如果是找旅伴帖子，检查 buddy_description 是否为空
+	if isFindingBuddy == "1" && buddyDescription == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "找旅伴帖子必须提供需求描述",
+		})
+		return
+	}
+
+	// 根据 NoteID 查找笔记
+	var note models.Note
+	if err := global.Db.First(&note, "note_id = ?", noteID).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, UpdateNoteResponse{
+			Status: "失败",
+			Code:   404,
+			Error:  "笔记不存在",
+		})
+		return
+	}
+
+	// 更新 Tag 和 TagNoteRelation
+	tagList := strings.Split(noteTagList, ",") // 新的 tag 列表
+
+	// 查找旧的 tag 列表（从数据库中获取 Note 的原始 tag 列表）
+	var oldTagList []string
+	if note.NoteTagList != "" {
+		oldTagList = strings.Split(note.NoteTagList, ",")
+	}
+	// 打印新的 tagList 和旧的 oldTagList
+	fmt.Println("[DEBUG] New Tag List:", tagList)    // 打印新的 tagList
+	fmt.Println("[DEBUG] Old Tag List:", oldTagList) // 打印旧的 oldTagList
+
+	// 将旧 tag 和新 tag 转为 map，方便比对
+	oldTagMap := make(map[string]bool)
+	newTagMap := make(map[string]bool)
+	for _, tag := range oldTagList {
+		oldTagMap[tag] = true
+	}
+	for _, tag := range tagList {
+		newTagMap[tag] = true
+	}
+
+	// 处理删除的 tag（存在于旧 tag 列表但不存在于新 tag 列表）
+	for _, oldTag := range oldTagList {
+		if !newTagMap[oldTag] {
+			var tag models.Tag
+
+			// 更新 Tag 记录
+			if err := global.Db.Where("t_name = ?", oldTag).First(&tag).Error; err == nil {
+				tag.UseCount--
+				// 删除对应的 TagNoteRelation 记录
+				var tagNoteRelation models.TagNoteRelation
+				global.Db.Where("n_id = ? AND t_id = ?", note.NoteID, tag.ID).Delete(&tagNoteRelation)
+				if tag.UseCount <= 0 {
+					global.Db.Delete(&tag)
+				} else {
+					global.Db.Save(&tag)
+				}
+			}
+
+		}
+	}
+
+	// 处理新增的 tag（存在于新 tag 列表但不存在于旧 tag 列表）
+	for _, newTag := range tagList {
+		if !oldTagMap[newTag] {
+			var tag models.Tag
+			if err := global.Db.Where("t_name = ?", newTag).First(&tag).Error; err != nil {
+				tag = models.Tag{
+					ID:         strconv.FormatInt(time.Now().UnixNano(), 10),
+					TName:      newTag,
+					Creator:    strconv.Itoa(int(note.NoteCreatorID)),
+					CreateDate: time.Now(),
+					UpdateDate: time.Now(),
+					UseCount:   1,
+				}
+				global.Db.Create(&tag)
+			} else {
+				tag.UseCount++
+				tag.UpdateDate = time.Now()
+				global.Db.Save(&tag)
+			}
+
+			// 为 Tag 创建新的 TagNoteRelation 记录
+			tagNoteRelation := models.TagNoteRelation{
+				NID:        note.NoteID,
+				TID:        tag.ID,
+				CreatorID:  note.NoteCreatorID,
+				CreateDate: time.Now(),
+			}
+			global.Db.Create(&tagNoteRelation)
+		}
+	}
+
+	// 更新笔记内容
+	if noteTitle != "" {
+		note.NoteTitle = noteTitle
+	}
+	if noteContent != "" {
+		note.NoteContent = noteContent
+	}
+	if noteTagList != "" {
+		note.NoteTagList = noteTagList
+	}
+	if noteType != "" {
+		note.NoteType = noteType
+	}
+	if isFindingBuddy == "0" {
+		isFindingBud, _ := strconv.Atoi(isFindingBuddy)
+		note.IsFindingBuddy = isFindingBud
+	}
+	if isFindingBuddy == "1" && buddyDescription != "" {
+		note.BuddyDescription = buddyDescription
+	}
+
+	// 存下旧的文件urls
+	var oldURLs []string
+	if err := json.Unmarshal([]byte(note.NoteURLs), &oldURLs); err != nil {
+		ctx.JSON(http.StatusInternalServerError, UpdateNoteResponse{
+			Status: "失败",
+			Code:   500,
+			Error:  "笔记更新失败:" + err.Error(),
+		})
+		return
+	}
+
+	// 上传新文件
+	files := ctx.Request.MultipartForm.File["files"]
+	var newUploadedURLs []string
+	for _, file := range files {
+		ext := strings.ToLower(filepath.Ext(file.Filename))
+		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"status": "失败",
+				"code":   400,
+				"error":  "笔记更新文件不支持的文件类型",
+			})
+			return
+		}
+
+		url, err := oss.UploadFileToAliyunOss(file, "note_pics")
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"status": "失败",
+				"code":   500,
+				"error":  "笔记更新文件上传至oss失败",
+			})
+			return
+		}
+		newUploadedURLs = append(newUploadedURLs, url)
+	}
+
+	// 更新 NoteURLs
+	noteURLsJSON, err := json.Marshal(newUploadedURLs)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "URL 序列化失败",
+		})
+		return
+	}
+	note.NoteURLs = string(noteURLsJSON)
+
+	note.NoteUpdateTime = time.Now().Unix() // 更新时间戳
+
+	// 保存到数据库
+	if err := global.Db.Save(&note).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "笔记更新失败",
+		})
+		return
+	}
+
+	cleanupUploadedFiles(oldURLs) // 安心删除旧文件
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "成功",
+		"code":   200,
+		"urls":   newUploadedURLs,
+	})
+}
+
+// PublishNoteWithVideo 发布视频笔记（含上传笔记视频至oss）
+func PublishNoteWithVideo(ctx *gin.Context) {
+	// 接收笔记信息
+	noteTitle := ctx.PostForm("note_title")
+	noteContent := ctx.PostForm("note_content")
+	noteTagList := ctx.PostForm("note_tag_list")
+	noteType := ctx.PostForm("note_type")
+	noteCreatorID := ctx.PostForm("note_creator_id")
+	isFindingBuddy := ctx.PostForm("is_finding_buddy")
+	buddyDescription := ctx.PostForm("buddy_description")
+
+	if noteTitle == "" || noteContent == "" || noteCreatorID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "缺少必要参数",
+		})
+		return
+	}
+
+	if isFindingBuddy != "0" || isFindingBuddy != "1" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "isFindingBuddy参数只可以为0或1",
+		})
+		return
+	}
+
+	// 如果是找旅伴帖子，检查 buddy_description 是否为空
+	if isFindingBuddy == "1" && buddyDescription == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "找旅伴帖子必须提供需求描述",
+		})
+		return
+	}
+
+	creatorID, err := strconv.Atoi(noteCreatorID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "创建者ID格式错误",
+		})
+		return
+	}
+
+	// 检查用户是否存在
+	var user models.User
+	if err := global.Db.First(&user, "user_id = ?", creatorID).Error; err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "用户不存在",
+		})
+		return
+	}
+
+	// 处理文件
+	videoFile, err := ctx.FormFile("video_file")
+	if videoFile == nil {
+		ctx.JSON(http.StatusBadRequest, ErrorResponse{
+			Status: "失败",
+			Code:   400,
+			Error:  "没有上传文件，或者请求格式不正确",
+		})
+		return
+	}
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "视频文件上传失败",
+		})
+		return
+	}
+	// 校验视频格式与大小
+	ext := strings.ToLower(filepath.Ext(videoFile.Filename))
+	if ext != ".mp4" && ext != ".mov" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "不支持的视频格式，仅支持 mp4 和 mov",
+		})
+		return
+	}
+	if videoFile.Size > 20*1024*1024*1024 { // 20GB
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "视频文件大小超出限制，最大支持20GB",
+		})
+		return
+	}
+
+	var newVideoURLs []string
+
+	// 上传新视频文件到 OSS
+	newVideoURL, err := oss.UploadFileToAliyunOss(videoFile, "note_videos")
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "视频上传失败",
+		})
+		return
+	}
+	newVideoURLs = append(newVideoURLs, newVideoURL)
+
+	// 转换 URL 为 JSON
+	noteURLsJSON, err := json.Marshal(newVideoURLs)
+	if err != nil {
+		// 删除已上传的文件
+		cleanupUploadedFiles(newVideoURLs)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "视频URL序列化失败",
+		})
+		return
+	}
+
+	// 创建 Note 记录
+	isFindingBuddyInt, _ := strconv.Atoi(isFindingBuddy)
+	note := models.Note{
+		NoteTitle:        noteTitle,
+		NoteContent:      noteContent,
+		ViewCount:        0,
+		NoteTagList:      noteTagList,
+		NoteType:         noteType,
+		NoteURLs:         string(noteURLsJSON),
+		NoteCreatorID:    uint(creatorID),
+		NoteUpdateTime:   time.Now().Unix(),
+		IsFindingBuddy:   isFindingBuddyInt,
+		BuddyDescription: buddyDescription,
+	}
+
+	// 保存 Note 到数据库
+	if err := global.Db.Create(&note).Error; err != nil {
+		// 删除已上传的文件
+		cleanupUploadedFiles(newVideoURLs)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "笔记保存失败",
+		})
+		return
+	}
+
+	// 更新用户的 NoteCount 字段
+	if err := global.Db.Model(&models.User{}).
+		Where("user_id = ?", creatorID).
+		Update("note_count", gorm.Expr("note_count + ?", 1)).Error; err != nil {
+		// 删除已上传的文件，并删除 Note 记录
+		cleanupUploadedFiles(newVideoURLs)
+		global.Db.Delete(&note)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "更新用户 NoteCount 失败",
+		})
+		return
+	}
+
+	// 处理 Tag 和 TagNoteRelation
+	tags := strings.Split(noteTagList, ",")
+	for _, tagName := range tags {
+		var tag models.Tag
+		if err := global.Db.Where("t_name = ?", tagName).First(&tag).Error; err != nil {
+			tag = models.Tag{
+				ID:         strconv.FormatInt(time.Now().UnixNano(), 10),
+				TName:      tagName,
+				Creator:    noteCreatorID,
+				CreateDate: time.Now(),
+				UpdateDate: time.Now(),
+				UseCount:   1,
+			}
+			global.Db.Create(&tag)
+		} else {
+			tag.UseCount++
+			tag.UpdateDate = time.Now()
+			global.Db.Save(&tag)
+		}
+
+		relation := models.TagNoteRelation{
+			NID:        note.NoteID,
+			TID:        tag.ID,
+			CreatorID:  uint(creatorID),
+			CreateDate: time.Now(),
+		}
+		global.Db.Create(&relation)
+	}
+
+	// 成功响应
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "成功",
+		"code":   200,
+		"nid":    note.NoteID,
+		"urls":   newVideoURLs,
+	})
+}
+
+// UpdateNoteWithVideo 更新视频笔记接口（含相应更新oss上文件）
+func UpdateNoteWithVideo(ctx *gin.Context) {
+	// 获取请求参数
+	noteID := ctx.PostForm("note_id")
+	noteTitle := ctx.PostForm("note_title")
+	noteContent := ctx.PostForm("note_content")
+	noteTagList := ctx.PostForm("note_tag_list")
+	noteType := ctx.PostForm("note_type")
+	isFindingBuddy := ctx.PostForm("is_finding_buddy")
+	buddyDescription := ctx.PostForm("buddy_description")
+
+	// 检查必要参数
+	if noteID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "缺少必要的 Note ID 参数",
+		})
+		return
+	}
+
+	if isFindingBuddy != "0" || isFindingBuddy != "1" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "isFindingBuddy参数只可以为0或1",
+		})
+		return
+	}
+
+	// 如果是找旅伴帖子，检查 buddy_description 是否为空
+	if isFindingBuddy == "1" && buddyDescription == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "找旅伴帖子必须提供需求描述",
+		})
+		return
+	}
+
+	// 根据 NoteID 查找笔记
+	var note models.Note
+	if err := global.Db.First(&note, "note_id = ?", noteID).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, UpdateNoteResponse{
+			Status: "失败",
+			Code:   404,
+			Error:  "笔记不存在",
+		})
+		return
+	}
+
+	// 更新 Tag 和 TagNoteRelation
+	tagList := strings.Split(noteTagList, ",") // 新的 tag 列表
+
+	// 查找旧的 tag 列表（从数据库中获取 Note 的原始 tag 列表）
+	var oldTagList []string
+	if note.NoteTagList != "" {
+		oldTagList = strings.Split(note.NoteTagList, ",")
+	}
+	// 打印新的 tagList 和旧的 oldTagList
+	fmt.Println("[DEBUG] New Tag List:", tagList)    // 打印新的 tagList
+	fmt.Println("[DEBUG] Old Tag List:", oldTagList) // 打印旧的 oldTagList
+
+	// 将旧 tag 和新 tag 转为 map，方便比对
+	oldTagMap := make(map[string]bool)
+	newTagMap := make(map[string]bool)
+	for _, tag := range oldTagList {
+		oldTagMap[tag] = true
+	}
+	for _, tag := range tagList {
+		newTagMap[tag] = true
+	}
+
+	// 处理删除的 tag（存在于旧 tag 列表但不存在于新 tag 列表）
+	for _, oldTag := range oldTagList {
+		if !newTagMap[oldTag] {
+			var tag models.Tag
+
+			// 更新 Tag 记录
+			if err := global.Db.Where("t_name = ?", oldTag).First(&tag).Error; err == nil {
+				tag.UseCount--
+				// 删除对应的 TagNoteRelation 记录
+				var tagNoteRelation models.TagNoteRelation
+				global.Db.Where("n_id = ? AND t_id = ?", note.NoteID, tag.ID).Delete(&tagNoteRelation)
+				if tag.UseCount <= 0 {
+					global.Db.Delete(&tag)
+				} else {
+					global.Db.Save(&tag)
+				}
+			}
+
+		}
+	}
+
+	// 处理新增的 tag（存在于新 tag 列表但不存在于旧 tag 列表）
+	for _, newTag := range tagList {
+		if !oldTagMap[newTag] {
+			var tag models.Tag
+			if err := global.Db.Where("t_name = ?", newTag).First(&tag).Error; err != nil {
+				tag = models.Tag{
+					ID:         strconv.FormatInt(time.Now().UnixNano(), 10),
+					TName:      newTag,
+					Creator:    strconv.Itoa(int(note.NoteCreatorID)),
+					CreateDate: time.Now(),
+					UpdateDate: time.Now(),
+					UseCount:   1,
+				}
+				global.Db.Create(&tag)
+			} else {
+				tag.UseCount++
+				tag.UpdateDate = time.Now()
+				global.Db.Save(&tag)
+			}
+
+			// 为 Tag 创建新的 TagNoteRelation 记录
+			tagNoteRelation := models.TagNoteRelation{
+				NID:        note.NoteID,
+				TID:        tag.ID,
+				CreatorID:  note.NoteCreatorID,
+				CreateDate: time.Now(),
+			}
+			global.Db.Create(&tagNoteRelation)
+		}
+	}
+
+	// 更新笔记内容
+	if noteTitle != "" {
+		note.NoteTitle = noteTitle
+	}
+	if noteContent != "" {
+		note.NoteContent = noteContent
+	}
+	if noteTagList != "" {
+		note.NoteTagList = noteTagList
+	}
+	if noteType != "" {
+		note.NoteType = noteType
+	}
+	if isFindingBuddy == "0" {
+		isFindingBud, _ := strconv.Atoi(isFindingBuddy)
+		note.IsFindingBuddy = isFindingBud
+	}
+	if isFindingBuddy == "1" && buddyDescription != "" {
+		note.BuddyDescription = buddyDescription
+	}
+
+	// 存下旧的文件urls
+	var oldURLs []string
+	if err := json.Unmarshal([]byte(note.NoteURLs), &oldURLs); err != nil {
+		ctx.JSON(http.StatusInternalServerError, UpdateNoteResponse{
+			Status: "失败",
+			Code:   500,
+			Error:  "笔记更新失败:" + err.Error(),
+		})
+		return
+	}
+
+	// 处理文件
+	videoFile, err := ctx.FormFile("video_file")
+	if videoFile == nil {
+		ctx.JSON(http.StatusBadRequest, ErrorResponse{
+			Status: "失败",
+			Code:   400,
+			Error:  "没有上传文件，或者请求格式不正确",
+		})
+		return
+	}
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "视频文件上传失败",
+		})
+		return
+	}
+	// 校验视频格式与大小
+	ext := strings.ToLower(filepath.Ext(videoFile.Filename))
+	if ext != ".mp4" && ext != ".mov" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "不支持的视频格式，仅支持 mp4 和 mov",
+		})
+		return
+	}
+	if videoFile.Size > 20*1024*1024*1024 { // 20GB
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "视频文件大小超出限制，最大支持20GB",
+		})
+		return
+	}
+
+	var newVideoURLs []string
+
+	// 上传新视频文件到 OSS
+	newVideoURL, err := oss.UploadFileToAliyunOss(videoFile, "note_videos")
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "视频上传失败",
+		})
+		return
+	}
+	newVideoURLs = append(newVideoURLs, newVideoURL)
+
+	// 更新 NoteURLs
+	noteURLsJSON, err := json.Marshal(newVideoURLs)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "URL 序列化失败",
+		})
+		return
+	}
+	note.NoteURLs = string(noteURLsJSON)
+
+	note.NoteUpdateTime = time.Now().Unix() // 更新时间戳
+
+	// 保存到数据库
+	if err := global.Db.Save(&note).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "笔记更新失败",
+		})
+		return
+	}
+
+	cleanupUploadedFiles(oldURLs) // 安心删除旧文件
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "成功",
+		"code":   200,
+		"urls":   newVideoURLs,
+	})
+}
+
+// DeleteNote 删除笔记接口（含相应删除oss上文件）
 func DeleteNote(ctx *gin.Context) {
 	var req DeleteNoteRequest
 
@@ -387,143 +1071,22 @@ func DeleteNote(ctx *gin.Context) {
 		return
 	}
 
+	// 最后再删除oss笔记文件，调用 cleanupUploadedFiles 删除文件
+	var uploadedURLs []string
+	if err := json.Unmarshal([]byte(note.NoteURLs), &uploadedURLs); err != nil {
+		log.Printf("解析 NoteURLs 失败: %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "解析 NoteURLs 失败",
+		})
+		return
+	}
+	cleanupUploadedFiles(uploadedURLs)
+
 	// 成功响应
 	ctx.JSON(http.StatusOK, DeleteNoteResponse{
 		Status: "笔记删除成功",
-		Code:   200,
-	})
-}
-
-// UpdateNote 更新笔记接口
-func UpdateNote(ctx *gin.Context) {
-	var req UpdateNoteRequest
-
-	// 绑定 JSON 数据到 UpdateNoteRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, UpdateNoteResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  err.Error(),
-		})
-		return
-	}
-
-	// 根据 NoteID 查找笔记
-	var note models.Note
-	if err := global.Db.First(&note, "note_id = ?", req.NoteID).Error; err != nil {
-		ctx.JSON(http.StatusNotFound, UpdateNoteResponse{
-			Status: "失败",
-			Code:   404,
-			Error:  "笔记不存在",
-		})
-		return
-	}
-
-	// 更新 Tag 和 TagNoteRelation
-	tagList := strings.Split(req.NoteTagList, ",") // 新的 tag 列表
-
-	// 查找旧的 tag 列表（从数据库中获取 Note 的原始 tag 列表）
-	var oldTagList []string
-	if note.NoteTagList != "" {
-		oldTagList = strings.Split(note.NoteTagList, ",")
-	}
-	// 打印新的 tagList 和旧的 oldTagList
-	fmt.Println("[DEBUG] New Tag List:", tagList)    // 打印新的 tagList
-	fmt.Println("[DEBUG] Old Tag List:", oldTagList) // 打印旧的 oldTagList
-
-	// 将旧 tag 和新 tag 转为 map，方便比对
-	oldTagMap := make(map[string]bool)
-	newTagMap := make(map[string]bool)
-	for _, tag := range oldTagList {
-		oldTagMap[tag] = true
-	}
-	for _, tag := range tagList {
-		newTagMap[tag] = true
-	}
-
-	// 处理删除的 tag（存在于旧 tag 列表但不存在于新 tag 列表）
-	for _, oldTag := range oldTagList {
-		if !newTagMap[oldTag] {
-			var tag models.Tag
-
-			// 更新 Tag 记录
-			if err := global.Db.Where("t_name = ?", oldTag).First(&tag).Error; err == nil {
-				tag.UseCount--
-				// 删除对应的 TagNoteRelation 记录
-				var tagNoteRelation models.TagNoteRelation
-				global.Db.Where("n_id = ? AND t_id = ?", note.NoteID, tag.ID).Delete(&tagNoteRelation)
-				if tag.UseCount <= 0 {
-					global.Db.Delete(&tag)
-				} else {
-					global.Db.Save(&tag)
-				}
-			}
-
-		}
-	}
-
-	// 处理新增的 tag（存在于新 tag 列表但不存在于旧 tag 列表）
-	for _, newTag := range tagList {
-		if !oldTagMap[newTag] {
-			var tag models.Tag
-			if err := global.Db.Where("t_name = ?", newTag).First(&tag).Error; err != nil {
-				tag = models.Tag{
-					ID:         strconv.FormatInt(time.Now().UnixNano(), 10),
-					TName:      newTag,
-					Creator:    strconv.Itoa(int(note.NoteCreatorID)),
-					CreateDate: time.Now(),
-					UpdateDate: time.Now(),
-					UseCount:   1,
-				}
-				global.Db.Create(&tag)
-			} else {
-				tag.UseCount++
-				tag.UpdateDate = time.Now()
-				global.Db.Save(&tag)
-			}
-
-			// 为 Tag 创建新的 TagNoteRelation 记录
-			tagNoteRelation := models.TagNoteRelation{
-				NID:        note.NoteID,
-				TID:        tag.ID,
-				CreatorID:  note.NoteCreatorID,
-				CreateDate: time.Now(),
-			}
-			global.Db.Create(&tagNoteRelation)
-		}
-	}
-
-	// 更新笔记内容
-	if req.NoteTitle != "" {
-		note.NoteTitle = req.NoteTitle
-	}
-	if req.NoteContent != "" {
-		note.NoteContent = req.NoteContent
-	}
-	if req.NoteTagList != "" {
-		note.NoteTagList = req.NoteTagList
-	}
-	if req.NoteType != "" {
-		note.NoteType = req.NoteType
-	}
-	if req.NoteURLs != "" {
-		note.NoteURLs = req.NoteURLs
-	}
-	note.NoteUpdateTime = time.Now().Unix() // 更新时间戳
-
-	// 保存更新到数据库
-	if err := global.Db.Save(&note).Error; err != nil {
-		ctx.JSON(http.StatusInternalServerError, UpdateNoteResponse{
-			Status: "失败",
-			Code:   500,
-			Error:  "笔记更新失败",
-		})
-		return
-	}
-
-	// 成功响应
-	ctx.JSON(http.StatusOK, UpdateNoteResponse{
-		Status: "笔记更新成功",
 		Code:   200,
 	})
 }
@@ -817,16 +1380,6 @@ func GetCollectedNotes(ctx *gin.Context) {
 }
 
 // GetNoteByID 根据笔记 ID 获取笔记信息
-// @Summary 根据笔记 ID 获取笔记
-// @Description 根据笔记 ID 获取笔记详细信息
-// @Tags 笔记相关接口
-// @Accept application/json
-// @Produce application/json
-// @Param note_id path uint true "笔记 ID"
-// @Success 200 {object} GetNoteResponse "笔记获取成功响应信息"
-// @Failure 400 {object} GetNoteResponse "请求参数错误"
-// @Failure 404 {object} GetNoteResponse "笔记不存在"
-// @Router /getNote/{note_id} [get]
 func GetNoteByID(ctx *gin.Context) {
 	// 从路径参数获取 note_id
 	noteID := ctx.Query("note_id")
@@ -878,17 +1431,6 @@ func GetNoteByID(ctx *gin.Context) {
 }
 
 // GetNotesByCreatorID 根据创建者 ID 获取笔记
-// @Summary 根据创建者 ID 获取笔记
-// @Description 根据创建者 ID 获取该用户创建的所有笔记
-// @Tags 笔记相关接口
-// @Accept application/json
-// @Produce application/json
-// @Param creator_id query string true "创建者 ID"
-// @Success 200 {object} GetNotesByCreatorIDResponse "成功返回笔记数组"
-// @Failure 400 {object} GetNotesByCreatorIDResponse "请求参数错误"
-// @Failure 404 {object} GetNotesByCreatorIDResponse "未找到相关笔记"
-// @Failure 500 {object} GetNotesByCreatorIDResponse "服务器内部错误"
-// @Router /api/note/getNotesByCreatorId [get]
 func GetNotesByCreatorID(ctx *gin.Context) {
 	// 获取请求参数
 	creatorId := ctx.Query("creator_id")
@@ -975,6 +1517,7 @@ func GetNotesByCreatorID(ctx *gin.Context) {
 	})
 }
 
+// GetNotesByUpdateTime 根据更新时间新旧获取笔记
 func GetNotesByUpdateTime(ctx *gin.Context) {
 	// 获取请求参数
 	noteType := ctx.Query("note_type")
@@ -1059,6 +1602,7 @@ func GetNotesByUpdateTime(ctx *gin.Context) {
 	})
 }
 
+// GetNotesByLikes 根据笔记获赞数多少获取笔记
 func GetNotesByLikes(ctx *gin.Context) {
 	// 获取请求参数
 	noteType := ctx.Query("note_type")
@@ -1143,6 +1687,7 @@ func GetNotesByLikes(ctx *gin.Context) {
 	})
 }
 
+// GetNotesByCollects 根据笔记收藏数多少获取笔记
 func GetNotesByCollects(ctx *gin.Context) {
 	// 获取请求参数
 	noteType := ctx.Query("note_type")
