@@ -1170,7 +1170,11 @@ func GetFoNotes(ctx *gin.Context) {
 			"collect_counts":   note.CollectCounts,
 			"comment_counts":   note.CommentCounts,
 			"note_creator_id":  note.NoteCreatorID,
-			"note_update_time": note.NoteUpdateTime, // 时间戳直接返回，前端要解析！
+			"note_update_time": note.NoteUpdateTime,
+			"note_type":        note.NoteType,
+			"note_tag_list":    note.NoteTagList,
+			"view_count":       note.ViewCount,
+			"note_urls":        note.NoteURLs,
 		})
 	}
 
@@ -1262,6 +1266,10 @@ func GetLikedNotes(ctx *gin.Context) {
 			"comment_counts":   note.CommentCounts,
 			"note_creator_id":  note.NoteCreatorID,
 			"note_update_time": note.NoteUpdateTime,
+			"note_type":        note.NoteType,
+			"note_tag_list":    note.NoteTagList,
+			"view_count":       note.ViewCount,
+			"note_urls":        note.NoteURLs,
 		})
 	}
 
@@ -1359,6 +1367,10 @@ func GetCollectedNotes(ctx *gin.Context) {
 			"comment_counts":   note.CommentCounts,
 			"note_creator_id":  note.NoteCreatorID,
 			"note_update_time": note.NoteUpdateTime,
+			"note_type":        note.NoteType,
+			"note_tag_list":    note.NoteTagList,
+			"view_count":       note.ViewCount,
+			"note_urls":        note.NoteURLs,
 		})
 	}
 
@@ -1500,6 +1512,7 @@ func GetNotesByCreatorID(ctx *gin.Context) {
 			"note_type":        note.NoteType,
 			"note_tag_list":    note.NoteTagList,
 			"view_count":       note.ViewCount,
+			"note_urls":        note.NoteURLs,
 		})
 	}
 
@@ -1588,6 +1601,7 @@ func GetNotesByUpdateTime(ctx *gin.Context) {
 			"note_type":        note.NoteType,
 			"note_tag_list":    note.NoteTagList,
 			"view_count":       note.ViewCount,
+			"note_urls":        note.NoteURLs,
 		})
 	}
 
@@ -1676,6 +1690,7 @@ func GetNotesByLikes(ctx *gin.Context) {
 			"note_type":        note.NoteType,
 			"note_tag_list":    note.NoteTagList,
 			"view_count":       note.ViewCount,
+			"note_urls":        note.NoteURLs,
 		})
 	}
 
@@ -1764,6 +1779,7 @@ func GetNotesByCollects(ctx *gin.Context) {
 			"note_type":        note.NoteType,
 			"note_tag_list":    note.NoteTagList,
 			"view_count":       note.ViewCount,
+			"note_urls":        note.NoteURLs,
 		})
 	}
 
