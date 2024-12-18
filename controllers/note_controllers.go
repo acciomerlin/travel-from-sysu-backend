@@ -1497,6 +1497,9 @@ func GetNotesByCreatorID(ctx *gin.Context) {
 			"comment_counts":   note.CommentCounts,
 			"note_creator_id":  note.NoteCreatorID,
 			"note_update_time": note.NoteUpdateTime,
+			"note_type":        note.NoteType,
+			"note_tag_list":    note.NoteTagList,
+			"view_count":       note.ViewCount,
 		})
 	}
 
@@ -1582,6 +1585,9 @@ func GetNotesByUpdateTime(ctx *gin.Context) {
 			"comment_counts":   note.CommentCounts,
 			"note_creator_id":  note.NoteCreatorID,
 			"note_update_time": note.NoteUpdateTime,
+			"note_type":        note.NoteType,
+			"note_tag_list":    note.NoteTagList,
+			"view_count":       note.ViewCount,
 		})
 	}
 
@@ -1667,6 +1673,9 @@ func GetNotesByLikes(ctx *gin.Context) {
 			"comment_counts":   note.CommentCounts,
 			"note_creator_id":  note.NoteCreatorID,
 			"note_update_time": note.NoteUpdateTime,
+			"note_type":        note.NoteType,
+			"note_tag_list":    note.NoteTagList,
+			"view_count":       note.ViewCount,
 		})
 	}
 
@@ -1752,6 +1761,9 @@ func GetNotesByCollects(ctx *gin.Context) {
 			"comment_counts":   note.CommentCounts,
 			"note_creator_id":  note.NoteCreatorID,
 			"note_update_time": note.NoteUpdateTime,
+			"note_type":        note.NoteType,
+			"note_tag_list":    note.NoteTagList,
+			"view_count":       note.ViewCount,
 		})
 	}
 
