@@ -16,6 +16,8 @@ package main
 // @BasePath /api/auth
 
 import (
+	"github.com/gin-contrib/cors"
+	"time"
 	"travel-from-sysu-backend/config"
 	"travel-from-sysu-backend/router"
 )
@@ -23,6 +25,16 @@ import (
 func main() {
 	config.InitConfig()
 	r := router.SetupRouter()
+
+	// 配置 CORS
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},                   // 允许的前端地址
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},            // 允许的 HTTP 方法
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"}, // 允许的自定义头
+		ExposeHeaders:    []string{"Content-Length"},                          // 可被浏览器访问的头
+		AllowCredentials: true,                                                // 是否允许携带 Cookie
+		MaxAge:           12 * time.Hour,                                      // 预检请求的缓存时间
+	}))
 
 	port := config.AppCongfig.App.Port
 
