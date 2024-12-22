@@ -3,6 +3,7 @@ package controllers
 import (
 	"gorm.io/gorm"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 	"travel-from-sysu-backend/global"
@@ -81,6 +82,16 @@ func Like(ctx *gin.Context) {
 		global.Db.Model(&models.Tag{}).
 			Where("t_name IN ?", tags).
 			Update("like_count", gorm.Expr("like_count + ?", 1))
+	}
+
+	// 添加通知记录
+	if err := AddNotificationAndUpdateUnreadCount(req.Uid, note.NoteCreatorID, "like"); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "通知记录创建失败：" + err.Error(),
+		})
+		return
 	}
 
 	ctx.JSON(http.StatusOK, LikeOrCollectResponse{
@@ -219,6 +230,16 @@ func Collect(ctx *gin.Context) {
 			Update("collect_count", gorm.Expr("collect_count + ?", 1))
 	}
 
+	// 添加通知记录
+	if err := AddNotificationAndUpdateUnreadCount(req.Uid, note.NoteCreatorID, "collect"); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "通知记录创建失败：" + err.Error(),
+		})
+		return
+	}
+
 	ctx.JSON(http.StatusOK, LikeOrCollectResponse{
 		Status: "收藏成功",
 		Code:   200,
@@ -293,5 +314,68 @@ func Uncollect(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, LikeOrCollectResponse{
 		Status: "取消收藏成功",
 		Code:   200,
+	})
+}
+
+// GetIfUserLikeOrCollect 检查用户是否点赞、收藏以及是否关注帖子作者
+func GetIfUserLikeOrCollect(ctx *gin.Context) {
+	// 获取请求参数
+	uid := ctx.Query("uid")
+	nid := ctx.Query("nid")
+
+	// 校验参数
+	if uid == "" || nid == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "缺少必要参数(uid 或 nid)",
+		})
+		return
+	}
+
+	// 转换参数为整数
+	userID, err := strconv.Atoi(uid)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "uid 参数格式不正确",
+		})
+		return
+	}
+
+	noteID, err := strconv.Atoi(nid)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "nid 参数格式不正确",
+		})
+		return
+	}
+
+	// 初始化返回数据
+	response := gin.H{
+		"like":    0, // 默认未点赞
+		"collect": 0, // 默认未收藏
+	}
+
+	// 检查是否点赞
+	var like models.Like
+	if err := global.Db.Where("uid = ? AND nid = ?", userID, noteID).First(&like).Error; err == nil {
+		response["like"] = 1
+	}
+
+	// 检查是否收藏
+	var collect models.Collect
+	if err := global.Db.Where("uid = ? AND nid = ?", userID, noteID).First(&collect).Error; err == nil {
+		response["collect"] = 1
+	}
+
+	// 返回结果
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "成功",
+		"code":   200,
+		"data":   response,
 	})
 }

@@ -57,6 +57,11 @@ func InitDB() {
 	if err != nil {
 		log.Fatalf("Error migrating collect table: %v", err)
 	}
+	// 再迁移 Notification 表
+	err = db.AutoMigrate(&models.Notification{})
+	if err != nil {
+		log.Fatalf("Error migrating Notification table: %v", err)
+	}
 
 	if err != nil {
 		log.Fatalf("Fail to initialize database, got error: %v", err)

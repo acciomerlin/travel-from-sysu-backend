@@ -16,8 +16,7 @@ package main
 // @BasePath /api/auth
 
 import (
-	"github.com/gin-contrib/cors"
-	"time"
+	"github.com/gin-gonic/gin"
 	"travel-from-sysu-backend/config"
 	"travel-from-sysu-backend/router"
 	"travel-from-sysu-backend/utils"
@@ -30,14 +29,7 @@ func main() {
 	r := router.SetupRouter()
 
 	// 配置 CORS
-	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},                   // 允许的前端地址
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},            // 允许的 HTTP 方法
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"}, // 允许的自定义头
-		ExposeHeaders:    []string{"Content-Length"},                          // 可被浏览器访问的头
-		AllowCredentials: true,                                                // 是否允许携带 Cookie
-		MaxAge:           12 * time.Hour,                                      // 预检请求的缓存时间
-	}))
+	r.Use(CORSMiddleware())
 
 	port := config.AppCongfig.App.Port
 
@@ -46,4 +38,21 @@ func main() {
 	}
 
 	r.Run(port)
+}
+
+// CORSMiddleware 中间件处理跨域问题
+func CORSMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
 }

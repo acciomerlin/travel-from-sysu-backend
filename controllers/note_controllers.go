@@ -123,7 +123,82 @@ func cleanupUploadedFiles(urls []string) {
 	}
 }
 
-// PublishNoteWithPics 发布笔多图笔记（含上传笔记图片至oss）
+// DeleteUploadedFile 删除上传到OSS的文件
+func DeleteUploadedFile(ctx *gin.Context) {
+	// 获取请求参数
+	fileURL := ctx.Query("file_url") // 文件的URL
+	if fileURL == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "缺少必要参数 file_url",
+		})
+		return
+	}
+
+	// 调用OSS删除文件的方法
+	err := oss.DeleteFileFromAliyunOss(fileURL)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  fmt.Sprintf("删除文件失败: %v", err),
+		})
+		return
+	}
+
+	// 成功响应
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":  "成功",
+		"code":    200,
+		"message": "文件已成功删除",
+	})
+}
+
+// UploadNotePic 上传单张笔记图片至 OSS
+func UploadNotePic(ctx *gin.Context) {
+	// 获取上传的文件
+	file, err := ctx.FormFile("file")
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "未找到文件或请求格式不正确",
+		})
+		return
+	}
+
+	// 检查文件扩展名是否支持
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "不支持的文件类型",
+		})
+		return
+	}
+
+	// 上传文件到 OSS
+	url, err := oss.UploadFileToAliyunOss(file, "note_pics")
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "图片上传失败",
+		})
+		return
+	}
+
+	// 返回上传成功的 URL
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "成功",
+		"code":   200,
+		"url":    url,
+	})
+}
+
+// PublishNoteWithPics 上传图片笔记
 func PublishNoteWithPics(ctx *gin.Context) {
 	// 接收笔记信息
 	noteTitle := ctx.PostForm("note_title")
@@ -131,10 +206,11 @@ func PublishNoteWithPics(ctx *gin.Context) {
 	noteTagList := ctx.PostForm("note_tag_list")
 	noteType := ctx.PostForm("note_type")
 	noteCreatorID := ctx.PostForm("note_creator_id")
+	noteURLs := ctx.PostForm("note_urls")
 	isFindingBuddy := ctx.PostForm("is_finding_buddy")
 	buddyDescription := ctx.PostForm("buddy_description")
 
-	if noteTitle == "" || noteContent == "" || noteCreatorID == "" {
+	if noteTitle == "" || noteContent == "" || noteCreatorID == "" || noteURLs == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"status": "失败",
 			"code":   400,
@@ -174,60 +250,6 @@ func PublishNoteWithPics(ctx *gin.Context) {
 		return
 	}
 
-	// 处理文件
-	files := ctx.Request.MultipartForm.File["files"]
-	if files == nil {
-		ctx.JSON(http.StatusBadRequest, ErrorResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  "没有上传文件，或者请求格式不正确",
-		})
-		return
-	}
-
-	var uploadedURLs []string
-
-	// 上传文件到 OSS
-	for _, file := range files {
-		ext := strings.ToLower(filepath.Ext(file.Filename))
-		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
-			// 删除已上传的文件
-			cleanupUploadedFiles(uploadedURLs)
-			ctx.JSON(http.StatusBadRequest, gin.H{
-				"status": "失败",
-				"code":   400,
-				"error":  "不支持的文件类型",
-			})
-			return
-		}
-
-		url, err := oss.UploadFileToAliyunOss(file, "note_pics")
-		if err != nil {
-			// 删除已上传的文件
-			cleanupUploadedFiles(uploadedURLs)
-			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"status": "失败",
-				"code":   500,
-				"error":  "图片上传失败",
-			})
-			return
-		}
-		uploadedURLs = append(uploadedURLs, url)
-	}
-
-	// 转换 URL 为 JSON
-	noteURLsJSON, err := json.Marshal(uploadedURLs)
-	if err != nil {
-		// 删除已上传的文件
-		cleanupUploadedFiles(uploadedURLs)
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"status": "失败",
-			"code":   500,
-			"error":  "图片URL序列化失败",
-		})
-		return
-	}
-
 	// 创建 Note 记录
 	isFindingBuddyInt, _ := strconv.Atoi(isFindingBuddy)
 	note := models.Note{
@@ -236,7 +258,7 @@ func PublishNoteWithPics(ctx *gin.Context) {
 		ViewCount:        0,
 		NoteTagList:      noteTagList,
 		NoteType:         noteType,
-		NoteURLs:         string(noteURLsJSON),
+		NoteURLs:         noteURLs,
 		NoteCreatorID:    uint(creatorID),
 		NoteUpdateTime:   time.Now().Unix(),
 		IsFindingBuddy:   isFindingBuddyInt,
@@ -245,8 +267,6 @@ func PublishNoteWithPics(ctx *gin.Context) {
 
 	// 保存 Note 到数据库
 	if err := global.Db.Create(&note).Error; err != nil {
-		// 删除已上传的文件
-		cleanupUploadedFiles(uploadedURLs)
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"status": "失败",
 			"code":   500,
@@ -259,8 +279,6 @@ func PublishNoteWithPics(ctx *gin.Context) {
 	if err := global.Db.Model(&models.User{}).
 		Where("user_id = ?", creatorID).
 		Update("note_count", gorm.Expr("note_count + ?", 1)).Error; err != nil {
-		// 删除已上传的文件，并删除 Note 记录
-		cleanupUploadedFiles(uploadedURLs)
 		global.Db.Delete(&note)
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"status": "失败",
@@ -304,7 +322,6 @@ func PublishNoteWithPics(ctx *gin.Context) {
 		"status": "成功",
 		"code":   200,
 		"nid":    note.NoteID,
-		"urls":   uploadedURLs,
 	})
 }
 
@@ -325,15 +342,6 @@ func UpdateNoteWithPics(ctx *gin.Context) {
 			"status": "失败",
 			"code":   400,
 			"error":  "缺少必要的 Note ID 参数",
-		})
-		return
-	}
-
-	if isFindingBuddy != "0" || isFindingBuddy != "1" {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"status": "失败",
-			"code":   400,
-			"error":  "isFindingBuddy参数只可以为0或1",
 		})
 		return
 	}
@@ -524,7 +532,58 @@ func UpdateNoteWithPics(ctx *gin.Context) {
 	})
 }
 
-// PublishNoteWithVideo 发布视频笔记（含上传笔记视频至oss）
+// UploadNoteVideo 上传视频到OSS并返回URL
+func UploadNoteVideo(ctx *gin.Context) {
+	// 获取上传的文件
+	videoFile, err := ctx.FormFile("file")
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "没有上传文件或请求格式不正确",
+		})
+		return
+	}
+
+	// 校验视频格式和大小
+	ext := strings.ToLower(filepath.Ext(videoFile.Filename))
+	if ext != ".mp4" && ext != ".mov" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "不支持的视频格式，仅支持 mp4 和 mov",
+		})
+		return
+	}
+	if videoFile.Size > 20*1024*1024*1024 { // 20GB
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "视频文件大小超出限制，最大支持20GB",
+		})
+		return
+	}
+
+	// 上传视频到OSS
+	videoURL, err := oss.UploadFileToAliyunOss(videoFile, "note_videos")
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "视频上传失败",
+		})
+		return
+	}
+
+	// 成功返回URL
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "成功",
+		"code":   200,
+		"url":    videoURL,
+	})
+}
+
+// PublishNoteWithVideo 发布视频笔记
 func PublishNoteWithVideo(ctx *gin.Context) {
 	// 接收笔记信息
 	noteTitle := ctx.PostForm("note_title")
@@ -532,23 +591,16 @@ func PublishNoteWithVideo(ctx *gin.Context) {
 	noteTagList := ctx.PostForm("note_tag_list")
 	noteType := ctx.PostForm("note_type")
 	noteCreatorID := ctx.PostForm("note_creator_id")
+	videoURL := ctx.PostForm("video_url") // 上传接口返回的URL
 	isFindingBuddy := ctx.PostForm("is_finding_buddy")
 	buddyDescription := ctx.PostForm("buddy_description")
 
-	if noteTitle == "" || noteContent == "" || noteCreatorID == "" {
+	// 检查必要参数
+	if noteTitle == "" || noteContent == "" || noteCreatorID == "" || videoURL == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"status": "失败",
 			"code":   400,
 			"error":  "缺少必要参数",
-		})
-		return
-	}
-
-	if isFindingBuddy != "0" || isFindingBuddy != "1" {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"status": "失败",
-			"code":   400,
-			"error":  "isFindingBuddy参数只可以为0或1",
 		})
 		return
 	}
@@ -584,70 +636,6 @@ func PublishNoteWithVideo(ctx *gin.Context) {
 		return
 	}
 
-	// 处理文件
-	videoFile, err := ctx.FormFile("video_file")
-	if videoFile == nil {
-		ctx.JSON(http.StatusBadRequest, ErrorResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  "没有上传文件，或者请求格式不正确",
-		})
-		return
-	}
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"status": "失败",
-			"code":   400,
-			"error":  "视频文件上传失败",
-		})
-		return
-	}
-	// 校验视频格式与大小
-	ext := strings.ToLower(filepath.Ext(videoFile.Filename))
-	if ext != ".mp4" && ext != ".mov" {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"status": "失败",
-			"code":   400,
-			"error":  "不支持的视频格式，仅支持 mp4 和 mov",
-		})
-		return
-	}
-	if videoFile.Size > 20*1024*1024*1024 { // 20GB
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"status": "失败",
-			"code":   400,
-			"error":  "视频文件大小超出限制，最大支持20GB",
-		})
-		return
-	}
-
-	var newVideoURLs []string
-
-	// 上传新视频文件到 OSS
-	newVideoURL, err := oss.UploadFileToAliyunOss(videoFile, "note_videos")
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"status": "失败",
-			"code":   500,
-			"error":  "视频上传失败",
-		})
-		return
-	}
-	newVideoURLs = append(newVideoURLs, newVideoURL)
-
-	// 转换 URL 为 JSON
-	noteURLsJSON, err := json.Marshal(newVideoURLs)
-	if err != nil {
-		// 删除已上传的文件
-		cleanupUploadedFiles(newVideoURLs)
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"status": "失败",
-			"code":   500,
-			"error":  "视频URL序列化失败",
-		})
-		return
-	}
-
 	// 创建 Note 记录
 	isFindingBuddyInt, _ := strconv.Atoi(isFindingBuddy)
 	note := models.Note{
@@ -656,7 +644,7 @@ func PublishNoteWithVideo(ctx *gin.Context) {
 		ViewCount:        0,
 		NoteTagList:      noteTagList,
 		NoteType:         noteType,
-		NoteURLs:         string(noteURLsJSON),
+		NoteURLs:         videoURL,
 		NoteCreatorID:    uint(creatorID),
 		NoteUpdateTime:   time.Now().Unix(),
 		IsFindingBuddy:   isFindingBuddyInt,
@@ -665,8 +653,6 @@ func PublishNoteWithVideo(ctx *gin.Context) {
 
 	// 保存 Note 到数据库
 	if err := global.Db.Create(&note).Error; err != nil {
-		// 删除已上传的文件
-		cleanupUploadedFiles(newVideoURLs)
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"status": "失败",
 			"code":   500,
@@ -679,8 +665,6 @@ func PublishNoteWithVideo(ctx *gin.Context) {
 	if err := global.Db.Model(&models.User{}).
 		Where("user_id = ?", creatorID).
 		Update("note_count", gorm.Expr("note_count + ?", 1)).Error; err != nil {
-		// 删除已上传的文件，并删除 Note 记录
-		cleanupUploadedFiles(newVideoURLs)
 		global.Db.Delete(&note)
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"status": "失败",
@@ -724,7 +708,6 @@ func PublishNoteWithVideo(ctx *gin.Context) {
 		"status": "成功",
 		"code":   200,
 		"nid":    note.NoteID,
-		"urls":   newVideoURLs,
 	})
 }
 
@@ -745,15 +728,6 @@ func UpdateNoteWithVideo(ctx *gin.Context) {
 			"status": "失败",
 			"code":   400,
 			"error":  "缺少必要的 Note ID 参数",
-		})
-		return
-	}
-
-	if isFindingBuddy != "0" || isFindingBuddy != "1" {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"status": "失败",
-			"code":   400,
-			"error":  "isFindingBuddy参数只可以为0或1",
 		})
 		return
 	}
@@ -1829,7 +1803,7 @@ type NoteResponse struct {
 	Score          float64 `json:"score"` // 热度分数
 }
 
-// 获取热度推荐
+// GetHotRecommendations 获取热度推荐
 func GetHotRecommendations(ctx *gin.Context) {
 	// 获取请求参数
 	numStr := ctx.Query("num")
