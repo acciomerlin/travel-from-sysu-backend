@@ -411,3 +411,59 @@ func GetFolloweesWithPagination(ctx *gin.Context) {
 		"nextCursor": nextCursor, // 前端通过 nextCursor 获取下一页数据
 	})
 }
+
+// GetIfUserFollow 获取用户是否关注帖子作者
+func GetIfUserFollow(ctx *gin.Context) {
+	// 获取请求参数
+	uid := ctx.Query("uid")
+	fid := ctx.Query("fid")
+
+	// 校验参数
+	if uid == "" || fid == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "缺少必要参数(用户uid 或 帖子作者fid)",
+		})
+		return
+	}
+
+	// 转换参数为整数
+	userID, err := strconv.Atoi(uid)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "uid 参数格式不正确",
+		})
+		return
+	}
+
+	followID, err := strconv.Atoi(fid)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "fid 参数格式不正确",
+		})
+		return
+	}
+
+	// 初始化返回数据
+	response := gin.H{
+		"follow": 0, // 默认未点赞
+	}
+
+	// 检查是否已关注
+	var follower models.Follower
+	if err := global.Db.Where("uid = ? AND fid = ?", userID, followID).First(&follower).Error; err == nil {
+		response["follow"] = 1
+	}
+
+	// 返回结果
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "成功",
+		"code":   200,
+		"data":   response,
+	})
+}

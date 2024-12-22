@@ -1803,7 +1803,7 @@ type NoteResponse struct {
 	Score          float64 `json:"score"` // 热度分数
 }
 
-// 获取热度推荐
+// GetHotRecommendations 获取热度推荐
 func GetHotRecommendations(ctx *gin.Context) {
 	// 获取请求参数
 	numStr := ctx.Query("num")

@@ -83,7 +83,7 @@ type GetUserInfoByIDResponse struct {
 	Description   string    `json:"description"`
 	Gender        *int      `json:"gender"`
 	Birthday      string    `json:"birthday"`
-	TrendCount    uint64    `json:"trand_count"`
+	NoteCount     uint64    `json:"note_count"`
 	FollowerCount uint64    `json:"follower_count"`
 	FanCount      uint64    `json:"fan_count"`
 
@@ -434,7 +434,7 @@ func GetUserInfoByID(ctx *gin.Context) {
 		Description:   user.Description,
 		Gender:        user.Gender,
 		Birthday:      user.Birthday,
-		TrendCount:    user.TrendCount,
+		NoteCount:     user.NoteCount,
 		FollowerCount: user.FollowerCount,
 		FanCount:      user.FanCount,
 	})
