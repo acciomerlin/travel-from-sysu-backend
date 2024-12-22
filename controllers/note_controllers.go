@@ -1927,3 +1927,201 @@ func GetHotRecommendations(ctx *gin.Context) {
 	// 返回结果
 	ctx.JSON(http.StatusOK, response)
 }
+
+func GetNotesByTag(ctx *gin.Context) {
+	// 获取请求参数
+	tagName := ctx.Query("tag_name")
+	num := ctx.Query("num")
+	cursor := ctx.Query("cursor") // 游标，用于分页（笔记ID）
+
+	// 参数校验
+	if tagName == "" || num == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"success": false,
+			"msg":     "参数缺失",
+		})
+		return
+	}
+
+	// 默认最大条数
+	limit := 30
+	if n, err := strconv.Atoi(num); err == nil && n > 0 && n < 30 {
+		limit = n
+	}
+
+	// 获取tag_id
+	var tag models.Tag
+	if err := global.Db.Where("t_name = ?", tagName).First(&tag).Error; err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"success": false,
+			"msg":     "无效的tag_name或标签不存在",
+		})
+		return
+	}
+	tagID := tag.ID
+
+	// 获取关联的n_id（笔记ID）
+	var noteIDs []int
+	query := global.Db.Table("tag_note_relations").Select("n_id").Where("t_id = ?", tagID)
+	if cursor != "" {
+		if noteIDCursor, err := strconv.Atoi(cursor); err == nil && noteIDCursor >= 0 {
+			query = query.Where("n_id < ?", noteIDCursor) // 返回ID较小的记录
+		} else {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"code":    400,
+				"success": false,
+				"msg":     "无效的游标参数",
+			})
+			return
+		}
+	}
+	if err := query.Order("n_id DESC").Limit(limit).Pluck("n_id", &noteIDs).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"success": false,
+			"msg":     "查询笔记ID失败",
+		})
+		return
+	}
+
+	// 查询笔记数据
+	var notes []models.Note
+	if err := global.Db.Where("note_id IN ?", noteIDs).Order("score DESC").Find(&notes).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"success": false,
+			"msg":     "查询笔记失败",
+		})
+		return
+	}
+
+	// 构造返回结果
+	var responseNotes []gin.H
+	var nextCursor string
+	for _, note := range notes {
+		responseNotes = append(responseNotes, gin.H{
+			"note_id":          note.NoteID,
+			"note_title":       note.NoteTitle,
+			"note_content":     note.NoteContent,
+			"like_counts":      note.LikeCounts,
+			"collect_counts":   note.CollectCounts,
+			"comment_counts":   note.CommentCounts,
+			"note_creator_id":  note.NoteCreatorID,
+			"note_update_time": note.NoteUpdateTime,
+			"note_type":        note.NoteType,
+			"note_tag_list":    note.NoteTagList,
+			"view_count":       note.ViewCount,
+			"note_urls":        note.NoteURLs,
+		})
+	}
+
+	// 设置下一个游标
+	if len(noteIDs) > 0 {
+		nextCursor = strconv.Itoa(noteIDs[len(noteIDs)-1])
+	}
+
+	// 返回结果
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"success": true,
+		"msg":     "成功",
+		"data": gin.H{
+			"notes":      responseNotes,
+			"nextCursor": nextCursor, // 下次分页使用的游标
+		},
+	})
+}
+
+func GetNoteByKeywords(ctx *gin.Context) {
+	// 获取请求参数
+	keyword := ctx.Query("keyword")
+	num := ctx.Query("num")
+	cursor := ctx.Query("cursor") // 游标，用于分页（笔记ID）
+
+	// 参数校验
+	if keyword == "" || num == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"success": false,
+			"msg":     "参数缺失",
+		})
+		return
+	}
+
+	// 默认最大条数
+	limit := 30
+	if n, err := strconv.Atoi(num); err == nil && n > 0 && n < 30 {
+		limit = n
+	}
+
+	// 构造查询条件
+	query := global.Db.Table("notes").Where(
+		"note_content LIKE ? OR note_title LIKE ? OR note_tag_list LIKE ?",
+		"%"+keyword+"%", // 在内容中查找关键词
+		"%"+keyword+"%", // 在标题中查找关键词
+		"%"+keyword+"%", // 在标签列表中查找关键词
+	)
+
+	// 游标条件
+	if cursor != "" {
+		if noteIDCursor, err := strconv.Atoi(cursor); err == nil && noteIDCursor >= 0 {
+			query = query.Where("id < ?", noteIDCursor) // 返回ID较小的记录
+		} else {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"code":    400,
+				"success": false,
+				"msg":     "无效的游标参数",
+			})
+			return
+		}
+	}
+
+	// 查询笔记数据
+	var notes []models.Note
+	if err := query.Order("id DESC").Limit(limit).Find(&notes).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"success": false,
+			"msg":     "查询笔记失败",
+		})
+		return
+	}
+
+	// 构造返回结果
+	var responseNotes []gin.H
+	var nextCursor string
+	for _, note := range notes {
+		responseNotes = append(responseNotes, gin.H{
+			"note_id":          note.NoteID,
+			"note_title":       note.NoteTitle,
+			"note_content":     note.NoteContent,
+			"like_counts":      note.LikeCounts,
+			"collect_counts":   note.CollectCounts,
+			"comment_counts":   note.CommentCounts,
+			"note_creator_id":  note.NoteCreatorID,
+			"note_update_time": note.NoteUpdateTime,
+			"note_type":        note.NoteType,
+			"note_tag_list":    note.NoteTagList,
+			"view_count":       note.ViewCount,
+			"note_urls":        note.NoteURLs,
+		})
+	}
+
+	// 设置下一个游标
+	if len(notes) > 0 {
+		nextCursor = strconv.Itoa(int(notes[len(notes)-1].NoteID)) // 使用最后一个笔记的ID作为游标
+	}
+
+	// 返回结果
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"success": true,
+		"msg":     "成功",
+		"data": gin.H{
+			"notes":      responseNotes,
+			"nextCursor": nextCursor, // 下次分页使用的游标
+		},
+	})
+}

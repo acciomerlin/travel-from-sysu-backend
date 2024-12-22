@@ -126,8 +126,8 @@ func PublishComment(ctx *gin.Context) {
 
 	// 更新 note 表的 comment_count
 	if err := tx.Model(&models.Note{}).
-		Where("id = ?", req.NoteId).
-		UpdateColumn("comment_count", gorm.Expr("comment_count + ?", 1)).
+		Where("note_id = ?", req.NoteId).
+		UpdateColumn("comment_counts", gorm.Expr("comment_counts + ?", 1)).
 		Error; err != nil {
 		tx.Rollback()
 		ctx.JSON(http.StatusInternalServerError, PublishCommentResponse{
