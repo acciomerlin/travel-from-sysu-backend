@@ -84,6 +84,16 @@ func Like(ctx *gin.Context) {
 			Update("like_count", gorm.Expr("like_count + ?", 1))
 	}
 
+	// 添加通知记录
+	if err := AddNotificationAndUpdateUnreadCount(req.Uid, note.NoteCreatorID, "like"); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "通知记录创建失败：" + err.Error(),
+		})
+		return
+	}
+
 	ctx.JSON(http.StatusOK, LikeOrCollectResponse{
 		Status: "点赞成功",
 		Code:   200,
@@ -218,6 +228,16 @@ func Collect(ctx *gin.Context) {
 		global.Db.Model(&models.Tag{}).
 			Where("t_name IN ?", tags).
 			Update("collect_count", gorm.Expr("collect_count + ?", 1))
+	}
+
+	// 添加通知记录
+	if err := AddNotificationAndUpdateUnreadCount(req.Uid, note.NoteCreatorID, "collect"); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "通知记录创建失败：" + err.Error(),
+		})
+		return
 	}
 
 	ctx.JSON(http.StatusOK, LikeOrCollectResponse{

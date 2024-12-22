@@ -65,16 +65,6 @@ type GetSecondLevelCommentsResponse struct {
 }
 
 // PublishComment 发布评论接口
-// @Summary 发布评论接口
-// @Description 用户发布评论
-// @Tags 评论相关接口
-// @Accept application/json
-// @Produce application/json
-// @Param data body PublishCommentRequest true "发布评论请求参数"
-// @Success 200 {object} PublishCommentResponse "评论发布成功响应信息"
-// @Failure 400 {object} PublishCommentResponse "请求参数错误"
-// @Failure 500 {object} PublishCommentResponse "服务器内部错误"
-// @Router /publishComment [post]
 func PublishComment(ctx *gin.Context) {
 	var req PublishCommentRequest
 
@@ -140,6 +130,16 @@ func PublishComment(ctx *gin.Context) {
 
 	// 提交事务
 	tx.Commit()
+
+	// 添加通知记录
+	if err := AddNotificationAndUpdateUnreadCount(req.CreatorId, req.ReplyUid, "comment"); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "通知记录创建失败：" + err.Error(),
+		})
+		return
+	}
 
 	// 成功响应
 	ctx.JSON(http.StatusOK, PublishCommentResponse{

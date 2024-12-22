@@ -125,6 +125,15 @@ func Follow(ctx *gin.Context) {
 	global.Db.Model(&models.User{}).Where("user_id = ?", req.TargetUserID).Update("fan_count", gorm.Expr("fan_count + ?", 1))
 	global.Db.Model(&models.User{}).Where("user_id = ?", req.CurrentUserID).Update("follower_count", gorm.Expr("follower_count + ?", 1))
 
+	if err := AddNotificationAndUpdateUnreadCount(req.CurrentUserID, req.TargetUserID, "follow"); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "通知记录创建失败：" + err.Error(),
+		})
+		return
+	}
+
 	ctx.JSON(http.StatusOK, FollowResponse{
 		Code:    200,
 		Success: true,

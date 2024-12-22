@@ -65,5 +65,10 @@ func SetupRouter() *gin.Engine {
 		comment.GET("/getSecondLevelCommentsByParentId", controllers.GetSecondLevelCommentsByParentId)
 
 	}
+	notification := r.Group("/api/notification")
+	{
+		notification.GET("/readNotifications", controllers.ReadNotifications)
+		notification.GET("/getUnreadNotifiCounts", controllers.GetUnreadNotificationCount)
+	}
 	return r
 }
