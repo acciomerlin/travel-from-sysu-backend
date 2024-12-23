@@ -69,8 +69,16 @@ func SetupRouter() *gin.Engine {
 	}
 	notification := r.Group("/api/notification")
 	{
-		notification.GET("/readNotifications", controllers.ReadNotifications)
-		notification.GET("/getUnreadNotifiCounts", controllers.GetUnreadNotificationCount)
+		// 未读消息相关路由
+		notification.GET("/unread_noti_count", controllers.GetUnreadNotificationCount)                   // 获取未读消息计数
+		notification.GET("/unread_comments", controllers.GetUnreadCommentNotifications)                  // 获取未读评论消息
+		notification.GET("/unread_likes-and-collects", controllers.GetUnreadLikeAndCollectNotifications) // 获取未读点赞+收藏消息
+		notification.GET("/unread_follows", controllers.GetNewFollowNotifications)                       // 获取新增关注消息
+
+		// 历史已读消息相关路由
+		notification.GET("/read_comments", controllers.GetReadCommentNotifications)                  // 获取已读评论消息
+		notification.GET("/read_likes-and-collects", controllers.GetReadLikeAndCollectNotifications) // 获取已读点赞+收藏消息
+		notification.GET("/read_follows", controllers.GetReadFollowNotifications)                    // 获取已读关注消息
 	}
 	return r
 }

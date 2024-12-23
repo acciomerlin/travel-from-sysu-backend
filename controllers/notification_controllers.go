@@ -78,88 +78,485 @@ func GetUnreadNotificationCount(ctx *gin.Context) {
 	})
 }
 
-// ReadNotifications 阅读消息接口
-func ReadNotifications(ctx *gin.Context) {
-	// 获取用户ID
-	userID := ctx.Query("user_id")
-	if userID == "" {
+func GetUnreadCommentNotifications(ctx *gin.Context) {
+	recipientID := ctx.Query("recipient_id") // 用户ID
+	cursor := ctx.Query("cursor")            // 游标
+	num := ctx.DefaultQuery("num", "10")     // 分页数量，默认10
+
+	// 参数校验
+	if recipientID == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"status": "失败",
 			"code":   400,
-			"error":  "缺少必要参数 user_id",
+			"error":  "缺少 recipient_id 参数",
 		})
 		return
 	}
 
-	// 转换 userID 为整数
-	uid, err := strconv.Atoi(userID)
+	recipientIDUint, err := strconv.ParseUint(recipientID, 10, 64)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"status": "失败",
 			"code":   400,
-			"error":  "user_id 参数格式不正确",
+			"error":  "recipient_id 参数格式错误",
 		})
 		return
 	}
 
-	// 查询未读消息
-	var unreadNotifications []models.Notification
-	if err := global.Db.Where("recipient_id = ? AND is_read = ?", uid, false).Find(&unreadNotifications).Error; err != nil {
+	limit, err := strconv.Atoi(num)
+	if err != nil || limit <= 0 {
+		limit = 10 // 默认返回10条
+	}
+
+	// 构造查询
+	query := global.Db.Table("notifications").Where("recipient_id = ? AND type = ? AND is_read = ?", recipientIDUint, "comment", false)
+
+	// 如果提供了游标，则查询小于游标的消息
+	if cursor != "" {
+		cursorID, err := strconv.Atoi(cursor)
+		if err == nil {
+			query = query.Where("id < ?", cursorID)
+		}
+	}
+
+	var notifications []models.Notification
+	if err := query.Order("id DESC").Limit(limit).Find(&notifications).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"status": "失败",
 			"code":   500,
-			"error":  "查询未读消息失败",
+			"error":  "查询未读评论消息失败：" + err.Error(),
 		})
 		return
 	}
 
-	// 查询已读消息
-	var readNotifications []models.Notification
-	if err := global.Db.Where("recipient_id = ? AND is_read = ?", uid, true).Find(&readNotifications).Error; err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"status": "失败",
-			"code":   500,
-			"error":  "查询已读消息失败",
-		})
-		return
-	}
-
-	// 将未读消息标记为已读
-	if len(unreadNotifications) > 0 {
-		if err := global.Db.Model(&models.Notification{}).
-			Where("recipient_id = ? AND is_read = ?", uid, false).
-			Update("is_read", true).Error; err != nil {
+	// 标记消息为已读
+	if len(notifications) > 0 {
+		ids := make([]uint, len(notifications))
+		for i, notification := range notifications {
+			ids[i] = notification.ID
+		}
+		// 更新用户表中的未读消息计数
+		if err := global.Db.Model(&models.User{}).
+			Where("user_id = ?", recipientIDUint).
+			Update("unread_noti_count", gorm.Expr("unread_noti_count - ?", len(ids))).Error; err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{
 				"status": "失败",
 				"code":   500,
-				"error":  "更新未读消息为已读失败",
+				"error":  "更新用户未读消息计数失败：" + err.Error(),
+			})
+			return
+		}
+		// 批量更新
+		if err := global.Db.Model(&models.Notification{}).Where("id IN ?", ids).Update("is_read", true).Error; err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"status": "失败",
+				"code":   500,
+				"error":  "更新消息状态失败：" + err.Error(),
 			})
 			return
 		}
 	}
 
-	// 更新用户表中的未读消息数量为 0
-	if err := global.Db.Model(&models.User{}).
-		Where("user_id = ?", uid).
-		Update("unread_noti_count", 0).Error; err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
+	// 获取下一页游标
+	nextCursor := ""
+	if len(notifications) > 0 {
+		nextCursor = strconv.Itoa(int(notifications[len(notifications)-1].ID))
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "成功",
+		"code":   200,
+		"data": gin.H{
+			"notifications": notifications,
+			"next_cursor":   nextCursor,
+		},
+	})
+}
+
+func GetUnreadLikeAndCollectNotifications(ctx *gin.Context) {
+	recipientID := ctx.Query("recipient_id") // 用户ID
+	cursor := ctx.Query("cursor")            // 游标
+	num := ctx.DefaultQuery("num", "10")     // 分页数量，默认10
+
+	// 参数校验
+	if recipientID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
 			"status": "失败",
-			"code":   500,
-			"error":  "更新用户未读消息数量失败",
+			"code":   400,
+			"error":  "缺少 recipient_id 参数",
 		})
 		return
 	}
 
-	// 构造返回数据
-	response := gin.H{
-		"unread_messages": unreadNotifications,
-		"read_messages":   readNotifications,
+	recipientIDUint, err := strconv.ParseUint(recipientID, 10, 64)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "recipient_id 参数格式错误",
+		})
+		return
 	}
 
-	// 返回结果
+	limit, err := strconv.Atoi(num)
+	if err != nil || limit <= 0 {
+		limit = 10 // 默认返回10条
+	}
+
+	// 构造查询
+	query := global.Db.Table("notifications").Where("recipient_id = ? AND type IN (?, ?) AND is_read = ?", recipientIDUint, "like", "collect", false)
+
+	// 如果提供了游标，则查询小于游标的消息
+	if cursor != "" {
+		cursorID, err := strconv.Atoi(cursor)
+		if err == nil {
+			query = query.Where("id < ?", cursorID)
+		}
+	}
+
+	var notifications []models.Notification
+	if err := query.Order("id DESC").Limit(limit).Find(&notifications).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "查询未读点赞+收藏消息失败：" + err.Error(),
+		})
+		return
+	}
+
+	// 标记消息为已读
+	if len(notifications) > 0 {
+		ids := make([]uint, len(notifications))
+		for i, notification := range notifications {
+			ids[i] = notification.ID
+		}
+		// 更新用户表中的未读消息计数
+		if err := global.Db.Model(&models.User{}).
+			Where("user_id = ?", recipientIDUint).
+			Update("unread_noti_count", gorm.Expr("unread_noti_count - ?", len(ids))).Error; err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"status": "失败",
+				"code":   500,
+				"error":  "更新用户未读消息计数失败：" + err.Error(),
+			})
+			return
+		}
+		// 批量更新
+		if err := global.Db.Model(&models.Notification{}).Where("id IN ?", ids).Update("is_read", true).Error; err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"status": "失败",
+				"code":   500,
+				"error":  "更新消息状态失败：" + err.Error(),
+			})
+			return
+		}
+	}
+
+	// 获取下一页游标
+	nextCursor := ""
+	if len(notifications) > 0 {
+		nextCursor = strconv.Itoa(int(notifications[len(notifications)-1].ID))
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{
 		"status": "成功",
 		"code":   200,
-		"data":   response,
+		"data": gin.H{
+			"notifications": notifications,
+			"next_cursor":   nextCursor,
+		},
+	})
+}
+
+func GetNewFollowNotifications(ctx *gin.Context) {
+	recipientID := ctx.Query("recipient_id") // 用户ID
+	cursor := ctx.Query("cursor")            // 游标
+	num := ctx.DefaultQuery("num", "10")     // 分页数量，默认10
+
+	// 参数校验
+	if recipientID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "缺少 recipient_id 参数",
+		})
+		return
+	}
+
+	recipientIDUint, err := strconv.ParseUint(recipientID, 10, 64)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "recipient_id 参数格式错误",
+		})
+		return
+	}
+
+	limit, err := strconv.Atoi(num)
+	if err != nil || limit <= 0 {
+		limit = 10 // 默认返回10条
+	}
+
+	// 构造查询
+	query := global.Db.Table("notifications").Where("recipient_id = ? AND type = ? AND is_read = ?", recipientIDUint, "follow", false)
+
+	// 如果提供了游标，则查询小于游标的消息
+	if cursor != "" {
+		cursorID, err := strconv.Atoi(cursor)
+		if err == nil {
+			query = query.Where("id < ?", cursorID)
+		}
+	}
+
+	var notifications []models.Notification
+	if err := query.Order("id DESC").Limit(limit).Find(&notifications).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "查询新增关注消息失败：" + err.Error(),
+		})
+		return
+	}
+
+	// 标记消息为已读
+	if len(notifications) > 0 {
+		ids := make([]uint, len(notifications))
+		for i, notification := range notifications {
+			ids[i] = notification.ID
+		}
+		// 更新用户表中的未读消息计数
+		if err := global.Db.Model(&models.User{}).
+			Where("user_id = ?", recipientIDUint).
+			Update("unread_noti_count", gorm.Expr("unread_noti_count - ?", len(ids))).Error; err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"status": "失败",
+				"code":   500,
+				"error":  "更新用户未读消息计数失败：" + err.Error(),
+			})
+			return
+		}
+		// 批量更新
+		if err := global.Db.Model(&models.Notification{}).Where("id IN ?", ids).Update("is_read", true).Error; err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"status": "失败",
+				"code":   500,
+				"error":  "更新消息状态失败：" + err.Error(),
+			})
+			return
+		}
+	}
+
+	// 获取下一页游标
+	nextCursor := ""
+	if len(notifications) > 0 {
+		nextCursor = strconv.Itoa(int(notifications[len(notifications)-1].ID))
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "成功",
+		"code":   200,
+		"data": gin.H{
+			"notifications": notifications,
+			"next_cursor":   nextCursor,
+		},
+	})
+}
+
+func GetReadCommentNotifications(ctx *gin.Context) {
+	recipientID := ctx.Query("recipient_id") // 用户ID
+	cursor := ctx.Query("cursor")            // 游标
+	num := ctx.DefaultQuery("num", "10")     // 每页数量，默认10
+
+	// 参数校验
+	if recipientID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "缺少 recipient_id 参数",
+		})
+		return
+	}
+
+	recipientIDUint, err := strconv.ParseUint(recipientID, 10, 64)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "recipient_id 参数格式错误",
+		})
+		return
+	}
+
+	limit, err := strconv.Atoi(num)
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
+
+	// 查询条件：获取已读的评论消息
+	query := global.Db.Table("notifications").Where("recipient_id = ? AND type = ? AND is_read = ?", recipientIDUint, "comment", true)
+
+	if cursor != "" {
+		cursorID, err := strconv.Atoi(cursor)
+		if err == nil {
+			query = query.Where("id < ?", cursorID)
+		}
+	}
+
+	var notifications []models.Notification
+	if err := query.Order("id DESC").Limit(limit).Find(&notifications).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "查询已读评论消息失败：" + err.Error(),
+		})
+		return
+	}
+
+	// 获取下一页游标
+	nextCursor := ""
+	if len(notifications) > 0 {
+		nextCursor = strconv.Itoa(int(notifications[len(notifications)-1].ID))
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "成功",
+		"code":   200,
+		"data": gin.H{
+			"notifications": notifications,
+			"next_cursor":   nextCursor,
+		},
+	})
+}
+
+func GetReadLikeAndCollectNotifications(ctx *gin.Context) {
+	recipientID := ctx.Query("recipient_id")
+	cursor := ctx.Query("cursor")
+	num := ctx.DefaultQuery("num", "10")
+
+	// 参数校验
+	if recipientID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "缺少 recipient_id 参数",
+		})
+		return
+	}
+
+	recipientIDUint, err := strconv.ParseUint(recipientID, 10, 64)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "recipient_id 参数格式错误",
+		})
+		return
+	}
+
+	limit, err := strconv.Atoi(num)
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
+
+	// 查询条件：获取已读的点赞和收藏消息
+	query := global.Db.Table("notifications").Where("recipient_id = ? AND type IN (?, ?) AND is_read = ?", recipientIDUint, "like", "collect", true)
+
+	if cursor != "" {
+		cursorID, err := strconv.Atoi(cursor)
+		if err == nil {
+			query = query.Where("id < ?", cursorID)
+		}
+	}
+
+	var notifications []models.Notification
+	if err := query.Order("id DESC").Limit(limit).Find(&notifications).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "查询已读点赞和收藏消息失败：" + err.Error(),
+		})
+		return
+	}
+
+	// 获取下一页游标
+	nextCursor := ""
+	if len(notifications) > 0 {
+		nextCursor = strconv.Itoa(int(notifications[len(notifications)-1].ID))
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "成功",
+		"code":   200,
+		"data": gin.H{
+			"notifications": notifications,
+			"next_cursor":   nextCursor,
+		},
+	})
+}
+
+func GetReadFollowNotifications(ctx *gin.Context) {
+	recipientID := ctx.Query("recipient_id")
+	cursor := ctx.Query("cursor")
+	num := ctx.DefaultQuery("num", "10")
+
+	// 参数校验
+	if recipientID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "缺少 recipient_id 参数",
+		})
+		return
+	}
+
+	recipientIDUint, err := strconv.ParseUint(recipientID, 10, 64)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "recipient_id 参数格式错误",
+		})
+		return
+	}
+
+	limit, err := strconv.Atoi(num)
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
+
+	// 查询条件：获取已读的关注消息
+	query := global.Db.Table("notifications").Where("recipient_id = ? AND type = ? AND is_read = ?", recipientIDUint, "follow", true)
+
+	if cursor != "" {
+		cursorID, err := strconv.Atoi(cursor)
+		if err == nil {
+			query = query.Where("id < ?", cursorID)
+		}
+	}
+
+	var notifications []models.Notification
+	if err := query.Order("id DESC").Limit(limit).Find(&notifications).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "查询已读关注消息失败：" + err.Error(),
+		})
+		return
+	}
+
+	// 获取下一页游标
+	nextCursor := ""
+	if len(notifications) > 0 {
+		nextCursor = strconv.Itoa(int(notifications[len(notifications)-1].ID))
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "成功",
+		"code":   200,
+		"data": gin.H{
+			"notifications": notifications,
+			"next_cursor":   nextCursor,
+		},
 	})
 }

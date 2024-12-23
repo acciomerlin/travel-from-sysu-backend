@@ -47,6 +47,11 @@ func InitDB() {
 	if err != nil {
 		log.Fatalf("Error migrating tag_note_relation table: %v", err)
 	}
+	// 再迁移 comments 表
+	err = db.AutoMigrate(&models.Comments{})
+	if err != nil {
+		log.Fatalf("Error migrating comments table: %v", err)
+	}
 	// 再迁移 like 表
 	err = db.AutoMigrate(&models.Like{})
 	if err != nil {
