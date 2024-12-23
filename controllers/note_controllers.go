@@ -1716,20 +1716,30 @@ func GetNotesByUpdateTime(ctx *gin.Context) {
 // GetNotesByLikes 根据笔记获赞数多少获取笔记
 func GetNotesByLikes(ctx *gin.Context) {
 	// 获取请求参数
+	uid := ctx.Query("user_id")
 	noteType := ctx.Query("note_type")
 	num := ctx.Query("num")
-	cursor := ctx.Query("cursor") // 游标，用于分页（点赞数）
+	cursor := ctx.Query("cursor") // 游标，用于分页（时间戳）
 
 	// 参数校验
-	if num == "" {
+	if uid == "" || num == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
 			"success": false,
-			"msg":     "参数缺失",
+			"msg":     "user_id/num 参数缺失",
 		})
 		return
 	}
 
+	userID, err := strconv.Atoi(uid)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "uid 参数格式不正确",
+		})
+		return
+	}
 	// 默认最大条数
 	limit := 30
 	if n, err := strconv.Atoi(num); err == nil && n > 0 && n < 30 {
@@ -1769,6 +1779,9 @@ func GetNotesByLikes(ctx *gin.Context) {
 	var responseNotes []gin.H
 	var nextCursor string
 	for _, note := range notes {
+		isLike := utils.CheckIfUserLiked(userID, int(note.NoteID))
+		isCollect := utils.CheckIfUserCollected(userID, int(note.NoteID))
+		isFollow := utils.CheckUserFollow(userID, int(note.NoteCreatorID))
 		responseNotes = append(responseNotes, gin.H{
 			"note_id":          note.NoteID,
 			"note_title":       note.NoteTitle,
@@ -1782,6 +1795,11 @@ func GetNotesByLikes(ctx *gin.Context) {
 			"note_tag_list":    note.NoteTagList,
 			"view_count":       note.ViewCount,
 			"note_urls":        note.NoteURLs,
+			"status": gin.H{
+				"is_like":    isLike,
+				"is_collect": isCollect,
+				"is_follow":  isFollow,
+			},
 		})
 	}
 
@@ -1804,16 +1822,27 @@ func GetNotesByLikes(ctx *gin.Context) {
 
 func GetNotesByCollects(ctx *gin.Context) {
 	// 获取请求参数
+	uid := ctx.Query("user_id")
 	noteType := ctx.Query("note_type")
 	num := ctx.Query("num")
-	cursor := ctx.Query("cursor") // 游标，用于分页（点赞数）
+	cursor := ctx.Query("cursor") // 游标，用于分页（时间戳）
 
 	// 参数校验
-	if num == "" {
+	if uid == "" || num == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
 			"success": false,
-			"msg":     "参数缺失",
+			"msg":     "user_id/num 参数缺失",
+		})
+		return
+	}
+
+	userID, err := strconv.Atoi(uid)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "uid 参数格式不正确",
 		})
 		return
 	}
@@ -1857,6 +1886,9 @@ func GetNotesByCollects(ctx *gin.Context) {
 	var responseNotes []gin.H
 	var nextCursor string
 	for _, note := range notes {
+		isLike := utils.CheckIfUserLiked(userID, int(note.NoteID))
+		isCollect := utils.CheckIfUserCollected(userID, int(note.NoteID))
+		isFollow := utils.CheckUserFollow(userID, int(note.NoteCreatorID))
 		responseNotes = append(responseNotes, gin.H{
 			"note_id":          note.NoteID,
 			"note_title":       note.NoteTitle,
@@ -1870,6 +1902,11 @@ func GetNotesByCollects(ctx *gin.Context) {
 			"note_tag_list":    note.NoteTagList,
 			"view_count":       note.ViewCount,
 			"note_urls":        note.NoteURLs,
+			"status": gin.H{
+				"is_like":    isLike,
+				"is_collect": isCollect,
+				"is_follow":  isFollow,
+			},
 		})
 	}
 
@@ -1918,20 +1955,36 @@ type HotRecNoteResponse struct {
 	NoteTagList    string  `json:"note_tag_list"`
 	NoteURLs       string  `json:"note_urls"`
 	Score          float64 `json:"score"` // 热度分数
+	Status         struct {
+		IsLike    int `json:"is_like"`
+		IsCollect int `json:"is_collect"`
+		IsFollow  int `json:"is_follow"`
+	} `json:"status"`
 }
 
 // GetHotRecommendations 获取热度推荐
 func GetHotRecommendations(ctx *gin.Context) {
 	// 获取请求参数
+	uid := ctx.Query("user_id")
 	numStr := ctx.Query("num")
 	cursorStr := ctx.Query("cursor") // 游标，用于分页（基于分数）
 
 	// 参数校验
-	if numStr == "" {
+	if uid == "" || numStr == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
 			"success": false,
-			"msg":     "参数缺失",
+			"msg":     "user_id/num参数缺失",
+		})
+		return
+	}
+
+	userID, err := strconv.Atoi(uid)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "uid 参数格式不正确",
 		})
 		return
 	}
@@ -1981,6 +2034,9 @@ func GetHotRecommendations(ctx *gin.Context) {
 	// 构造返回结果
 	var responseNotes []HotRecNoteResponse
 	for _, note := range notes {
+		isLike := utils.CheckIfUserLiked(userID, int(note.NoteID))
+		isCollect := utils.CheckIfUserCollected(userID, int(note.NoteID))
+		isFollow := utils.CheckUserFollow(userID, int(note.NoteCreatorID))
 		responseNotes = append(responseNotes, HotRecNoteResponse{
 			NoteID:         note.NoteID,
 			NoteTitle:      note.NoteTitle,
@@ -1994,6 +2050,11 @@ func GetHotRecommendations(ctx *gin.Context) {
 			NoteTagList:    note.NoteTagList,
 			NoteURLs:       note.NoteURLs,
 			Score:          note.Score,
+			Status: struct {
+				IsLike    int `json:"is_like"`
+				IsCollect int `json:"is_collect"`
+				IsFollow  int `json:"is_follow"`
+			}{isLike, isCollect, isFollow},
 		})
 	}
 
@@ -2021,16 +2082,27 @@ func GetHotRecommendations(ctx *gin.Context) {
 
 func GetNotesByTag(ctx *gin.Context) {
 	// 获取请求参数
+	uid := ctx.Query("user_id")
 	tagName := ctx.Query("tag_name")
 	num := ctx.Query("num")
 	cursor := ctx.Query("cursor") // 游标，用于分页（笔记ID）
 
 	// 参数校验
-	if tagName == "" || num == "" {
+	if tagName == "" || num == "" || uid == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
 			"success": false,
-			"msg":     "参数缺失",
+			"msg":     "tag_name/user_id/num 参数缺失",
+		})
+		return
+	}
+
+	userID, err := strconv.Atoi(uid)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "uid 参数格式不正确",
 		})
 		return
 	}
@@ -2092,6 +2164,9 @@ func GetNotesByTag(ctx *gin.Context) {
 	var responseNotes []gin.H
 	var nextCursor string
 	for _, note := range notes {
+		isLike := utils.CheckIfUserLiked(userID, int(note.NoteID))
+		isCollect := utils.CheckIfUserCollected(userID, int(note.NoteID))
+		isFollow := utils.CheckUserFollow(userID, int(note.NoteCreatorID))
 		responseNotes = append(responseNotes, gin.H{
 			"note_id":          note.NoteID,
 			"note_title":       note.NoteTitle,
@@ -2105,6 +2180,11 @@ func GetNotesByTag(ctx *gin.Context) {
 			"note_tag_list":    note.NoteTagList,
 			"view_count":       note.ViewCount,
 			"note_urls":        note.NoteURLs,
+			"status": gin.H{
+				"is_like":    isLike,
+				"is_collect": isCollect,
+				"is_follow":  isFollow,
+			},
 		})
 	}
 
@@ -2127,16 +2207,27 @@ func GetNotesByTag(ctx *gin.Context) {
 
 func GetNoteByKeywords(ctx *gin.Context) {
 	// 获取请求参数
+	uid := ctx.Query("user_id")
 	keyword := ctx.Query("keyword")
 	num := ctx.Query("num")
 	cursor := ctx.Query("cursor") // 游标，用于分页（笔记ID）
 
 	// 参数校验
-	if keyword == "" || num == "" {
+	if keyword == "" || num == "" || uid == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
 			"success": false,
-			"msg":     "参数缺失",
+			"msg":     "keyword/user_id/num 参数缺失",
+		})
+		return
+	}
+
+	userID, err := strconv.Atoi(uid)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "uid 参数格式不正确",
 		})
 		return
 	}
@@ -2171,7 +2262,7 @@ func GetNoteByKeywords(ctx *gin.Context) {
 
 	// 查询笔记数据
 	var notes []models.Note
-	if err := query.Order("id DESC").Limit(limit).Find(&notes).Error; err != nil {
+	if err := query.Order("note_id DESC").Limit(limit).Find(&notes).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
 			"success": false,
@@ -2184,6 +2275,9 @@ func GetNoteByKeywords(ctx *gin.Context) {
 	var responseNotes []gin.H
 	var nextCursor string
 	for _, note := range notes {
+		isLike := utils.CheckIfUserLiked(userID, int(note.NoteID))
+		isCollect := utils.CheckIfUserCollected(userID, int(note.NoteID))
+		isFollow := utils.CheckUserFollow(userID, int(note.NoteCreatorID))
 		responseNotes = append(responseNotes, gin.H{
 			"note_id":          note.NoteID,
 			"note_title":       note.NoteTitle,
@@ -2197,6 +2291,11 @@ func GetNoteByKeywords(ctx *gin.Context) {
 			"note_tag_list":    note.NoteTagList,
 			"view_count":       note.ViewCount,
 			"note_urls":        note.NoteURLs,
+			"status": gin.H{
+				"is_like":    isLike,
+				"is_collect": isCollect,
+				"is_follow":  isFollow,
+			},
 		})
 	}
 

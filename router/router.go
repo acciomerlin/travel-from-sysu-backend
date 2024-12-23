@@ -23,8 +23,6 @@ func SetupRouter() *gin.Engine {
 	}
 	note := r.Group("/api/note")
 	{
-		note.GET("getIfUserFollow", controllers.GetIfUserFollow)
-		note.GET("getIfUserLikeOrCollect", controllers.GetIfUserLikeOrCollect)
 		note.POST("/uploadNotePic", controllers.UploadNotePic)
 		note.POST("/publishNoteWithPics", controllers.PublishNoteWithPics)
 		note.POST("/updateNoteWithPics", controllers.UpdateNoteWithPics)
