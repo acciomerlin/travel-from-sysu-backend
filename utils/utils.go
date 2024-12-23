@@ -50,7 +50,7 @@ func calculateScore(note models.Note, minLikes, maxLikes, minCollects, maxCollec
 		0.2*float64(normalizedComments) + 0.1*float64(normalizedUpdateTime)
 }
 
-// 每分钟计算一次热度并更新到数据库
+// UpdateHotRecommendations 每分钟计算一次热度并更新到数据库
 func UpdateHotRecommendations() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
@@ -109,4 +109,30 @@ func UpdateHotRecommendations() {
 
 		log.Println("Hot recommendations updated")
 	}
+}
+
+// CheckUserFollow 检查用户是否关注帖子作者
+func CheckUserFollow(userID int, followID int) int {
+	// 检查是否已关注
+	var follower models.Follower
+	if err := global.Db.Where("uid = ? AND fid = ?", userID, followID).First(&follower).Error; err == nil {
+		return 1 // 已关注
+	}
+	return 0 // 未关注
+}
+
+func CheckIfUserLiked(userID int, noteID int) int {
+	var like models.Like
+	if err := global.Db.Where("uid = ? AND nid = ?", userID, noteID).First(&like).Error; err == nil {
+		return 1 // 已点赞
+	}
+	return 0 // 未点赞
+}
+
+func CheckIfUserCollected(userID int, noteID int) int {
+	var collect models.Collect
+	if err := global.Db.Where("uid = ? AND nid = ?", userID, noteID).First(&collect).Error; err == nil {
+		return 1 // 已收藏
+	}
+	return 0 // 未收藏
 }

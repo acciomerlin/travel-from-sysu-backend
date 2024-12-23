@@ -2,14 +2,14 @@ package controllers
 
 import (
 	"errors"
+	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
 	"strconv"
 	"time"
 	"travel-from-sysu-backend/global"
 	"travel-from-sysu-backend/models"
-
-	"github.com/gin-gonic/gin"
+	"travel-from-sysu-backend/utils"
 )
 
 // FollowRequest 关注请求结构
@@ -421,13 +421,13 @@ func GetFolloweesWithPagination(ctx *gin.Context) {
 	})
 }
 
-// GetIfUserFollow 获取用户是否关注帖子作者
+// GetIfUserFollow 获取用户是否关注帖子作者 （先弃用）
 func GetIfUserFollow(ctx *gin.Context) {
 	// 获取请求参数
 	uid := ctx.Query("uid")
 	fid := ctx.Query("fid")
 
-	// 校验参数
+	// 参数校验
 	if uid == "" || fid == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"status": "失败",
@@ -458,21 +458,13 @@ func GetIfUserFollow(ctx *gin.Context) {
 		return
 	}
 
-	// 初始化返回数据
-	response := gin.H{
-		"follow": 0, // 默认未点赞
-	}
-
-	// 检查是否已关注
-	var follower models.Follower
-	if err := global.Db.Where("uid = ? AND fid = ?", userID, followID).First(&follower).Error; err == nil {
-		response["follow"] = 1
-	}
+	// 调用函数获取是否已关注
+	followStatus := utils.CheckUserFollow(userID, followID)
 
 	// 返回结果
 	ctx.JSON(http.StatusOK, gin.H{
 		"status": "成功",
 		"code":   200,
-		"data":   response,
+		"follow": followStatus,
 	})
 }

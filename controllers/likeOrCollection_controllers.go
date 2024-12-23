@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
 	"strconv"
@@ -8,8 +9,7 @@ import (
 	"time"
 	"travel-from-sysu-backend/global"
 	"travel-from-sysu-backend/models"
-
-	"github.com/gin-gonic/gin"
+	"travel-from-sysu-backend/utils"
 )
 
 // LikeOrCollectRequest 请求结构
@@ -354,28 +354,17 @@ func GetIfUserLikeOrCollect(ctx *gin.Context) {
 		return
 	}
 
-	// 初始化返回数据
-	response := gin.H{
-		"like":    0, // 默认未点赞
-		"collect": 0, // 默认未收藏
-	}
-
-	// 检查是否点赞
-	var like models.Like
-	if err := global.Db.Where("uid = ? AND nid = ?", userID, noteID).First(&like).Error; err == nil {
-		response["like"] = 1
-	}
-
-	// 检查是否收藏
-	var collect models.Collect
-	if err := global.Db.Where("uid = ? AND nid = ?", userID, noteID).First(&collect).Error; err == nil {
-		response["collect"] = 1
-	}
+	// 调用核心逻辑函数
+	likeStatus := utils.CheckIfUserLiked(userID, noteID)
+	collectStatus := utils.CheckIfUserCollected(userID, noteID)
 
 	// 返回结果
 	ctx.JSON(http.StatusOK, gin.H{
 		"status": "成功",
 		"code":   200,
-		"data":   response,
+		"data": gin.H{
+			"like":    likeStatus,
+			"collect": collectStatus,
+		},
 	})
 }
