@@ -1499,12 +1499,12 @@ func GetNoteByID(ctx *gin.Context) {
 func GetNotesByCreatorID(ctx *gin.Context) {
 	// 获取请求参数
 	uid := ctx.Query("user_id")
-	creatorId := ctx.Query("creator_id")
+	creatorID := ctx.Query("creator_id")
 	num := ctx.Query("num")
 	cursor := ctx.Query("cursor") // 游标，用于分页（时间戳）
 
 	// 参数校验
-	if uid == "" || creatorId == "" || num == "" {
+	if uid == "" || creatorID == "" || num == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
 			"success": false,
@@ -1523,14 +1523,24 @@ func GetNotesByCreatorID(ctx *gin.Context) {
 		return
 	}
 
+	creatorIDInt, err := strconv.Atoi(creatorID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "creator_id 参数格式不正确",
+		})
+		return
+	}
+
 	// 默认最大条数
 	limit := 30
 	if n, err := strconv.Atoi(num); err == nil && n > 0 && n < 30 {
 		limit = n
 	}
 
-	// 根据游标查询
-	query := global.Db
+	// 根据游标和创建者 ID 查询
+	query := global.Db.Table("notes").Where("note_creator_id = ?", creatorIDInt)
 	if cursor != "" {
 		// 使用游标（时间戳）来进行分页，获取小于游标的记录（倒序）
 		cursorTime, err := strconv.ParseInt(cursor, 10, 64)
