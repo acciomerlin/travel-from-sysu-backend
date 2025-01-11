@@ -1651,9 +1651,12 @@ func GetNotesByUpdateTime(ctx *gin.Context) {
 
 	// 构造查询条件
 	query := global.Db
-	if noteType != "" {
+	if noteType == "找搭子" {
+		query = query.Where("is_finding_buddy = ?", 1)
+	} else {
 		query = query.Where("note_type = ?", noteType)
 	}
+
 	if cursor != "" {
 		if timestamp, err := strconv.ParseInt(cursor, 10, 64); err == nil {
 			query = query.Where("note_update_time < ?", timestamp) // 返回最近更新的帖子
