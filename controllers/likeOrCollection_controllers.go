@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
@@ -14,8 +15,8 @@ import (
 
 // LikeOrCollectRequest 请求结构
 type LikeOrCollectRequest struct {
-	NoteID uint `json:"note_id" binding:"required"`
-	Uid    uint `json:"uid" binding:"required"`
+	NoteID *uint `json:"note_id"`
+	Uid    uint  `json:"uid" binding:"required"`
 }
 
 // LikeOrCollectResponse 响应结构
@@ -25,7 +26,19 @@ type LikeOrCollectResponse struct {
 	Error  string `json:"error,omitempty"`
 }
 
-// Like 点赞接口
+type LikeCommentRequest struct {
+	CommentID *uint `json:"comment_id" `
+	Uid       uint  `json:"uid" binding:"required"`
+}
+
+// LikeOrCollectResponse 响应结构
+type LikeCommentResponse struct {
+	Status string `json:"status"`
+	Code   int    `json:"code"`
+	Error  string `json:"error,omitempty"`
+}
+
+// LikeNote 点赞笔记接口
 func Like(ctx *gin.Context) {
 	var req LikeOrCollectRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -37,7 +50,7 @@ func Like(ctx *gin.Context) {
 		return
 	}
 
-	// 检查用户是否已经点赞过
+	// 检查用户是否已经点赞过笔记
 	var existingLike models.Like
 	if err := global.Db.Where("uid = ? AND nid = ?", req.Uid, req.NoteID).First(&existingLike).Error; err == nil {
 		ctx.JSON(http.StatusBadRequest, LikeOrCollectResponse{
@@ -75,32 +88,13 @@ func Like(ctx *gin.Context) {
 		return
 	}
 
-	// 更新相关 Tag 的 like_count
-	var note models.Note
-	if err := global.Db.First(&note, req.NoteID).Error; err == nil {
-		tags := strings.Split(note.NoteTagList, ",")
-		global.Db.Model(&models.Tag{}).
-			Where("t_name IN ?", tags).
-			Update("like_count", gorm.Expr("like_count + ?", 1))
-	}
-
-	// 添加通知记录
-	if err := AddNotificationAndUpdateUnreadCount(req.Uid, note.NoteCreatorID, "like"); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"status": "失败",
-			"code":   500,
-			"error":  "通知记录创建失败：" + err.Error(),
-		})
-		return
-	}
-
 	ctx.JSON(http.StatusOK, LikeOrCollectResponse{
 		Status: "点赞成功",
 		Code:   200,
 	})
 }
 
-// Dislike 取消点赞接口
+// DislikeNote 取消点赞笔记接口
 func Dislike(ctx *gin.Context) {
 	var req LikeOrCollectRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -108,17 +102,6 @@ func Dislike(ctx *gin.Context) {
 			Status: "失败",
 			Code:   400,
 			Error:  err.Error(),
-		})
-		return
-	}
-
-	// 检查用户是否存在
-	var user models.User
-	if err := global.Db.First(&user, req.Uid).Error; err != nil {
-		ctx.JSON(http.StatusBadRequest, LikeOrCollectResponse{
-			Status: "失败",
-			Code:   400,
-			Error:  "用户不存在",
 		})
 		return
 	}
@@ -154,15 +137,6 @@ func Dislike(ctx *gin.Context) {
 			Error:  "更新 Note 点赞数失败",
 		})
 		return
-	}
-
-	// 更新相关 Tag 的 like_count
-	var note models.Note
-	if err := global.Db.First(&note, req.NoteID).Error; err == nil {
-		tags := strings.Split(note.NoteTagList, ",")
-		global.Db.Model(&models.Tag{}).
-			Where("t_name IN ?", tags).
-			Update("like_count", gorm.Expr("like_count - ?", 1))
 	}
 
 	ctx.JSON(http.StatusOK, LikeOrCollectResponse{
@@ -317,6 +291,58 @@ func Uncollect(ctx *gin.Context) {
 	})
 }
 
+func IsLikeComment(ctx *gin.Context) {
+	// 获取请求参数
+	uid := ctx.Query("uid")
+	cid := ctx.Query("cid")
+
+	// 输出 uid 和 cid 到终端
+	fmt.Println("UID:", uid)
+	fmt.Println("CID:", cid)
+	// 校验参数
+	if uid == "" || cid == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "缺少必要参数(uid 或 nid)",
+		})
+		return
+	}
+
+	// 转换参数为整数
+	userID, err := strconv.Atoi(uid)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "uid 参数格式不正确",
+		})
+		return
+	}
+
+	commentID, err := strconv.Atoi(cid)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"status": "失败",
+			"code":   400,
+			"error":  "nid 参数格式不正确",
+		})
+		return
+	}
+
+	// 调用核心逻辑函数
+	likeStatus := utils.CheckIfUserLikedComment(userID, commentID)
+
+	// 返回结果
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "成功",
+		"code":   200,
+		"data": gin.H{
+			"like": likeStatus,
+		},
+	})
+}
+
 // GetIfUserLikeOrCollect 检查用户是否点赞、收藏以及是否关注帖子作者
 func GetIfUserLikeOrCollect(ctx *gin.Context) {
 	// 获取请求参数
@@ -366,5 +392,112 @@ func GetIfUserLikeOrCollect(ctx *gin.Context) {
 			"like":    likeStatus,
 			"collect": collectStatus,
 		},
+	})
+}
+
+// LikeComment 点赞评论接口
+func LikeComment(ctx *gin.Context) {
+	var req LikeCommentRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, LikeOrCollectResponse{
+			Status: "失败",
+			Code:   400,
+			Error:  err.Error(),
+		})
+		return
+	}
+
+	// 检查用户是否已经点赞过评论
+	var existingLike models.Like
+	if err := global.Db.Where("uid = ? AND cid = ?", req.Uid, req.CommentID).First(&existingLike).Error; err == nil {
+		ctx.JSON(http.StatusBadRequest, LikeOrCollectResponse{
+			Status: "失败",
+			Code:   400,
+			Error:  "您已点赞过此评论",
+		})
+		return
+	}
+
+	// 添加 Like 表记录
+	like := models.Like{
+		Uid:        req.Uid,
+		Cid:        req.CommentID,
+		CreateDate: time.Now(),
+	}
+	if err := global.Db.Create(&like).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, LikeOrCollectResponse{
+			Status: "失败",
+			Code:   500,
+			Error:  "点赞失败：" + err.Error(),
+		})
+		return
+	}
+
+	// 更新评论的点赞计数
+	if err := global.Db.Model(&models.Comments{}).
+		Where("comment_id = ?", req.CommentID).
+		Update("comment_like", gorm.Expr("comment_like + ?", 1)).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, LikeOrCollectResponse{
+			Status: "失败",
+			Code:   500,
+			Error:  "更新评论点赞数失败",
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, LikeOrCollectResponse{
+		Status: "点赞成功",
+		Code:   200,
+	})
+}
+
+// DislikeComment 取消点赞评论接口
+func UnLikeComment(ctx *gin.Context) {
+	var req LikeCommentRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, LikeOrCollectResponse{
+			Status: "失败",
+			Code:   400,
+			Error:  err.Error(),
+		})
+		return
+	}
+
+	// 检查点赞记录是否存在
+	var existingLike models.Like
+	if err := global.Db.Where("uid = ? AND cid = ?", req.Uid, req.CommentID).First(&existingLike).Error; err != nil {
+		ctx.JSON(http.StatusBadRequest, LikeOrCollectResponse{
+			Status: "失败",
+			Code:   400,
+			Error:  "未找到点赞记录",
+		})
+		return
+	}
+
+	// 删除 Like 表记录
+	if err := global.Db.Delete(&existingLike).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, LikeOrCollectResponse{
+			Status: "失败",
+			Code:   500,
+			Error:  "取消点赞失败",
+		})
+		return
+	}
+
+	// 更新评论的点赞计数
+	if err := global.Db.Model(&models.Comments{}).
+		Where("comment_id = ?", req.CommentID).
+		Update("comment_like", gorm.Expr("comment_like - ?", 1)).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, LikeOrCollectResponse{
+			Status: "失败",
+			Code:   500,
+			Error:  "更新评论点赞数失败",
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, LikeOrCollectResponse{
+		Status: "取消点赞成功",
+		Code:   200,
 	})
 }

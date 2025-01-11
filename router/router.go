@@ -48,6 +48,7 @@ func SetupRouter() *gin.Engine {
 		note.GET("/getNotesByKeywords", controllers.GetNoteByKeywords)
 		note.GET("getIfUserFollow", controllers.GetIfUserFollow)
 		note.GET("getIfUserLikeOrCollect", controllers.GetIfUserLikeOrCollect)
+
 	}
 	user := r.Group("/api/user")
 	{
@@ -65,7 +66,9 @@ func SetupRouter() *gin.Engine {
 		comment.GET("/getCommentById", controllers.GetCommentById)
 		comment.GET("/getFirstLevelCommentsByNoteId", controllers.GetFirstLevelCommentsByNoteId)
 		comment.GET("/getSecondLevelCommentsByParentId", controllers.GetSecondLevelCommentsByParentId)
-
+		comment.POST("/likeComment", controllers.LikeComment)
+		comment.POST("/unlikeComment", controllers.UnLikeComment)
+		comment.GET("isLikeComment", controllers.IsLikeComment)
 	}
 	notification := r.Group("/api/notification")
 	{

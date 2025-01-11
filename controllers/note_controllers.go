@@ -1244,7 +1244,9 @@ func GetLikedNotes(ctx *gin.Context) {
 
 	var noteIDs []uint
 	for _, like := range likes {
-		noteIDs = append(noteIDs, like.Nid)
+		if like.Nid != nil {
+			noteIDs = append(noteIDs, *like.Nid) // 解引用指针以获取 uint 值
+		}
 	}
 
 	var notes []models.Note
@@ -1363,7 +1365,9 @@ func GetCollectedNotes(ctx *gin.Context) {
 	// 获取收藏的笔记详情
 	var noteIDs []uint
 	for _, collect := range collects {
-		noteIDs = append(noteIDs, collect.Nid)
+		if collect.Nid != nil { // 确保指针不为 nil
+			noteIDs = append(noteIDs, *collect.Nid) // 解引用指针
+		}
 	}
 
 	var notes []models.Note

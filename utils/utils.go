@@ -129,6 +129,14 @@ func CheckIfUserLiked(userID int, noteID int) int {
 	return 0 // 未点赞
 }
 
+func CheckIfUserLikedComment(userID int, commentID int) int {
+	var like models.Like
+	if err := global.Db.Where("uid = ? AND cid = ?", userID, commentID).First(&like).Error; err == nil {
+		return 1 // 已点赞
+	}
+	return 0 // 未点赞
+}
+
 func CheckIfUserCollected(userID int, noteID int) int {
 	var collect models.Collect
 	if err := global.Db.Where("uid = ? AND nid = ?", userID, noteID).First(&collect).Error; err == nil {
