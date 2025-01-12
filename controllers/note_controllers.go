@@ -1162,6 +1162,7 @@ func GetFoNotes(ctx *gin.Context) {
 			"note_type":        note.NoteType,
 			"note_tag_list":    note.NoteTagList,
 			"view_count":       note.ViewCount,
+			"is_finding_buddy": note.IsFindingBuddy,
 			"note_urls":        note.NoteURLs,
 			"status": gin.H{
 				"is_like":    isLike,
