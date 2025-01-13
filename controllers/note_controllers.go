@@ -1014,6 +1014,29 @@ func DeleteNote(ctx *gin.Context) {
 	// 查找笔记以获取创建者 ID
 	var note models.Note
 	if err := global.Db.Where("note_id = ?", req.NoteID).First(&note).Error; err == nil {
+		// 删除 Note
+		if err := global.Db.Delete(&models.Note{}, req.NoteID).Error; err != nil {
+			ctx.JSON(http.StatusInternalServerError, ErrorResponse{
+				Status: "失败",
+				Code:   500,
+				Error:  "删除笔记失败:" + err.Error(),
+			})
+			return
+		}
+
+		// 最后再删除oss笔记文件，调用 cleanupUploadedFiles 删除文件
+		var uploadedURLs []string
+		if err := json.Unmarshal([]byte(note.NoteURLs), &uploadedURLs); err != nil {
+			log.Printf("解析 NoteURLs 失败: %v", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"status": "失败",
+				"code":   500,
+				"error":  "解析 NoteURLs 失败",
+			})
+			return
+		}
+		cleanupUploadedFiles(uploadedURLs)
+
 		// 更新创建者的 NoteCount 字段
 		if err := global.Db.Model(&models.User{}).
 			Where("user_id = ?", note.NoteCreatorID).
@@ -1035,29 +1058,6 @@ func DeleteNote(ctx *gin.Context) {
 		})
 		return
 	}
-
-	// 删除 Note
-	if err := global.Db.Delete(&models.Note{}, req.NoteID).Error; err != nil {
-		ctx.JSON(http.StatusInternalServerError, ErrorResponse{
-			Status: "失败",
-			Code:   500,
-			Error:  "删除笔记失败:" + err.Error(),
-		})
-		return
-	}
-
-	// 最后再删除oss笔记文件，调用 cleanupUploadedFiles 删除文件
-	var uploadedURLs []string
-	if err := json.Unmarshal([]byte(note.NoteURLs), &uploadedURLs); err != nil {
-		log.Printf("解析 NoteURLs 失败: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"status": "失败",
-			"code":   500,
-			"error":  "解析 NoteURLs 失败",
-		})
-		return
-	}
-	cleanupUploadedFiles(uploadedURLs)
 
 	// 成功响应
 	ctx.JSON(http.StatusOK, DeleteNoteResponse{
