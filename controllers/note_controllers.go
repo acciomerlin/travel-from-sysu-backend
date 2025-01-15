@@ -2035,7 +2035,7 @@ func GetHotRecommendations(ctx *gin.Context) {
 			return
 		}
 		// 基于分数进行分页，score < 游标分数
-		query = query.Where("score < ?", cursorScore)
+		query = query.Where("score <= ?", cursorScore)
 	}
 
 	// 查询笔记数据，按分数降序排序

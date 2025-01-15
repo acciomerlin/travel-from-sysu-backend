@@ -88,6 +88,25 @@ func Like(ctx *gin.Context) {
 		return
 	}
 
+	// 更新相关 Tag 的 like_count
+	var note models.Note
+	if err := global.Db.First(&note, req.NoteID).Error; err == nil {
+		tags := strings.Split(note.NoteTagList, ",")
+		global.Db.Model(&models.Tag{}).
+			Where("t_name IN ?", tags).
+			Update("collect_count", gorm.Expr("like_count + ?", 1))
+	}
+
+	// 添加通知记录
+	if err := AddNotificationAndUpdateUnreadCount(req.Uid, note.NoteCreatorID, "like"); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"status": "失败",
+			"code":   500,
+			"error":  "通知记录创建失败：" + err.Error(),
+		})
+		return
+	}
+
 	ctx.JSON(http.StatusOK, LikeOrCollectResponse{
 		Status: "点赞成功",
 		Code:   200,

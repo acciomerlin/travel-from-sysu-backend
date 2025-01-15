@@ -8,7 +8,7 @@ type Like struct {
 	Uid        uint      `gorm:"not null" json:"uid"`
 	Nid        *uint     `gorm:"null" json:"nid" ` // 笔记 ID（外键，关联 Note 表的 NoteID）
 	User       User      `gorm:"foreignKey:Uid;AssociationForeignKey:Uid"`
-	Note       Note      `gorm:"foreignKey:Nid;AssociationForeignKey:NoteID"`
+	Note       Note      `gorm:"constraint:OnDelete:CASCADE;foreignKey:Nid;AssociationForeignKey:NoteID"`
 	CreateDate time.Time `gorm:"type:datetime" json:"create_date"`
 	Cid        *uint     `gorm:"null" json:"cid"` // 笔记 ID（外键，关联 Comment 表的 CommentID）
 	Comment    Comments  `gorm:"foreignKey:Cid;AssociationForeignKey:CommentID"`
